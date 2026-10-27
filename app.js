@@ -246,7 +246,7 @@ async function pageHome() {
         </div>
       </div>
       <div class="start-copy">
-        <p>Movember asks for 60 km in November, one for each of the 60 men the world loses to suicide every hour. We are doing it with mustaches, a scoreboard and a lot of cold mornings.</p>
+        <p>Movember asks for 60 km in November, one for each of the 60 men the world loses to suicide every hour. Sixty is where you start counting, not where you stop. We are doing it with mustaches, a scoreboard and a lot of cold mornings.</p>
         <div class="actions">
           ${signedIn ? '<a class="btn primary" href="#/log">Log your km</a>' : '<a class="btn primary" href="#/join">Sign up</a>'}
           <a class="btn line" href="${esc(CONFIG.DONATE_URL)}" target="_blank" rel="noopener">Donate to the team</a>
@@ -286,7 +286,7 @@ async function pageHome() {
         <div class="pos">${r._pos}</div>${face(r)}
         <div class="who"><div class="nm">${esc(r.display_name)}</div>
           <div class="meta">${r.hometown ? `<span>${esc(r.hometown)}</span>` : ''}
-            ${km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
+            ${km >= 200 ? '<span class="tag done">200 club</span>' : km >= 100 ? '<span class="tag done">100 club</span>' : km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
             ${r.strava_checked ? '<span class="tag checked" title="Organizer matched this total to the Strava challenge">Strava checked</span>' : ''}
             ${r.mo_space_url ? `<a href="${esc(r.mo_space_url)}" target="_blank" rel="noopener">Sponsor ${esc(first(r.display_name))}</a>` : ''}</div>
           ${boardTab !== 'mo' ? `<div class="road" aria-label="${fmt(km)} of ${GOAL} km"><i style="width:${(100 * km) / scale}%"></i><s style="left:${(100 * GOAL) / scale}%"></s></div>` : ''}</div>
@@ -629,28 +629,45 @@ async function pageReview() {
 // ---------------------------------------------------------------------
 // Rules
 // ---------------------------------------------------------------------
+// The three-step joining sequence, shown on Rules and Sign up.
+function joinSteps() {
+  return `
+    <ol class="steps">
+      <li><span class="n">1</span><div><h3>Join our Movember team</h3>
+        <p>Sign up on Movember and join the Mo + Mileage team. This is where the money goes, and it gives you your own Mo Space fundraising page.</p>
+        <a class="btn primary" href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">Go to the Movember team</a></div></li>
+      <li><span class="n">2</span><div><h3>Copy your Mo Space link</h3>
+        <p>Once you are in, open your Mo Space on movember.com and copy the web address from the address bar. It starts with https://ca.movember.com/ or https://movember.com/.</p></div></li>
+      <li><span class="n">3</span><div><h3>Sign up here</h3>
+        <p>Enter your email, then paste your Mo Space link into your profile. Your name on the standings becomes a sponsor button.</p>
+        ${S.session && S.profile ? '' : '<a class="btn" href="#/join">Sign up on this site</a>'}</div></li>
+    </ol>`;
+}
+
 function pageRules() {
   $app.innerHTML = `
     <section class="block">
       <h2>Rules</h2>
       <p style="font-size:20px">November in Canada is dark at five and cold the rest of the time. This is a reason to get outside anyway, check in on each other, and raise money for men's mental health while doing it.</p>
-      <div class="rules" style="margin-top:32px">
-        <section><h3>Sign up twice</h3>
-          <p>Join <a href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">our Movember team</a> so donations count, then <a href="#/join">sign up here</a> and paste your Mo Space link so people can sponsor you from the standings.</p></section>
-        <section><h3>Grow the mustache</h3>
-          <p>Start clean-shaven with a Shave-Down photo, then post one photo a week. Every signed-in person gets 3 votes a round and cannot vote for themselves. Cannot grow one? Draw it on. Commit to the bit.</p></section>
-        <section><h3>Move every day you can</h3>
-          <p>Anything under your own power from November 1 to 30. Movember's target is ${GOAL} km. Hit it, then keep going.</p>
+
+      <h3 style="margin-top:40px">Joining takes three steps, in this order</h3>
+      ${joinSteps()}
+
+      <dl class="rulelist">
+        <div><dt>Move</dt><dd>
+          <p>Anything under your own power from November 1 to 30. Movember's target is ${GOAL} km. Treat that as the floor, not the finish line: the standings tag you at 60, 100 and 200 km.</p>
           <table class="mult">${Object.values(KINDS).map((k) => `<tr><td>${k.label}</td><td>×${k.mult}</td></tr>`).join('')}</table>
-          <p class="small muted" style="margin-top:10px">A bike covers ground much faster than legs, and a kilometre in the pool is a lot of work. The multipliers keep everyone on one fair board.</p></section>
-        <section><h3>Three scoreboards</h3>
-          <p><b>Kilometres:</b> total counted km. <b>Mustache:</b> total votes across the four weekly rounds. <b>Overall:</b> up to 50 for each, measured against the leader of each board.</p></section>
-        <section><h3>Keeping it honest</h3>
+          <p class="small muted" style="margin-top:10px">A bike covers ground much faster than legs, and a kilometre in the pool is a lot of work. The multipliers keep everyone on one fair board.</p></dd></div>
+        <div><dt>Mustache</dt><dd>
+          <p>Start clean-shaven with a Shave-Down photo, then post one photo a week. Every signed-in person gets 3 votes a round and cannot vote for themselves. Cannot grow one? Draw it on. Commit to the bit.</p></dd></div>
+        <div><dt>Scoreboards</dt><dd>
+          <p><b>Kilometres:</b> total counted km. <b>Mustache:</b> total votes across the four weekly rounds. <b>Overall:</b> up to 50 points for each, measured against the leader of each board. You need both to win it.</p></dd></div>
+        <div><dt>Keeping it honest</dt><dd>
           <p>Every entry needs proof: a Strava activity link or a screenshot from any app. Each Strava activity and each screenshot can only be used once. Entries faster than a believable pace, or questioned by three people, pause until the organizer checks them. On Strava? Join the group challenge too, and the organizer will match your total against it each week.</p>
-          <p class="small muted">Max ${KINDS.run.cap} km per entry (${KINDS.cycle.cap} on a bike, ${KINDS.swim.cap} in the pool). Logging closes December 2. Questions go to ${esc(CONFIG.ORGANIZER_NAME)}${CONFIG.ORGANIZER_EMAIL ? ` at <a href="mailto:${esc(CONFIG.ORGANIZER_EMAIL)}">${esc(CONFIG.ORGANIZER_EMAIL)}</a>` : ''}.</p></section>
-        <section><h3>Look after each other</h3>
-          <p>Use the month as an excuse to check in on your people, and ask twice. If you or someone you know is struggling, call or text 9-8-8 (Canada's Suicide Crisis Helpline), any hour, any day.</p></section>
-      </div>
+          <p class="small muted">Max ${KINDS.run.cap} km per entry (${KINDS.cycle.cap} on a bike, ${KINDS.swim.cap} in the pool). Logging closes December 2. Questions go to ${esc(CONFIG.ORGANIZER_NAME)}${CONFIG.ORGANIZER_EMAIL ? ` at <a href="mailto:${esc(CONFIG.ORGANIZER_EMAIL)}">${esc(CONFIG.ORGANIZER_EMAIL)}</a>` : ''}.</p></dd></div>
+        <div><dt>Look after each other</dt><dd>
+          <p>Use the month as an excuse to check in on your people, and ask twice. If you or someone you know is struggling, call or text 9-8-8 (Canada's Suicide Crisis Helpline), any hour, any day.</p></dd></div>
+      </dl>
     </section>`;
 }
 
@@ -663,9 +680,11 @@ async function pageJoin() {
   $app.innerHTML = `
     <div class="sheet">
       <h2>Sign up</h2>
-      <p>No password. Enter your email and we send a sign-in link and a 6-digit code. Signing up just to vote and cheer is welcome.</p>
+      <p>Competing? Do steps 1 and 2 on Movember first, so you have your Mo Space link ready. Here only to vote and cheer, or already signed up? Go straight to your email.</p>
+      ${joinSteps()}
       <form class="panel" id="email-form">
-        <label for="email" style="margin-top:0">Email</label>
+        <p style="margin-top:0">No password. We email you a sign-in link and a 6-digit code.</p>
+        <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
         <button class="btn primary block" style="margin-top:18px" id="email-btn">Email me a sign-in link</button>
       </form>
@@ -707,7 +726,7 @@ function profileForm(isNew) {
       <input id="ph" maxlength="60" value="${esc(p.hometown || '')}" placeholder="Ottawa">
       <label for="pm">Your Movember Mo Space link <span class="opt">(so people can sponsor you)</span></label>
       <input id="pm" type="url" value="${esc(p.mo_space_url || '')}" placeholder="https://movember.com/m/…">
-      <div class="hint">No Mo Space yet? <a href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">Join our Movember team</a>, then copy your page link.</div>
+      <div class="hint">No Mo Space yet? <a href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">Join our Movember team</a> first, then open your Mo Space and copy the address. You can add it later from the Me page.</div>
       <label for="ps">Strava profile <span class="opt">(optional)</span></label>
       <input id="ps" type="url" value="${esc(p.strava_url || '')}" placeholder="https://www.strava.com/athletes/…">
       <label class="check" style="margin-top:20px"><input type="checkbox" id="pp" ${p.is_participant ? 'checked' : ''}> I am competing. Leave this unticked if you are only here to vote and cheer.</label>
@@ -717,6 +736,9 @@ function profileForm(isNew) {
 function bindProfile(isNew) {
   document.getElementById('profile-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const competing = document.getElementById('pp').checked;
+    if (competing && !document.getElementById('pm').value.trim() &&
+        !confirm('No Mo Space link yet, so nobody can sponsor you from the standings. Save anyway and add it later?')) return;
     const row = {
       id: S.session.user.id,
       display_name: document.getElementById('pn').value.trim(),

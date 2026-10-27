@@ -193,8 +193,28 @@ input[type=file] { border-style: dashed; padding: 10px; }
 .pace { font-weight: 700; margin-top: 8px; }
 
 /* ---------- rules ---------- */
-.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 44px; }
-.rules section { border-top: 3px solid var(--ink); padding-top: 14px; margin-bottom: 30px; }
+/* Joining is a real sequence, so it gets numbers. */
+.steps { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bib); border-radius: 4px; }
+.steps li { display: grid; grid-template-columns: 52px 1fr; gap: 6px; padding: 22px 22px 24px 16px; }
+.steps li + li { border-left: 3px dashed var(--pavement-dark); }
+.steps .n { font: 900 64px/.8 var(--display); color: var(--cobalt); }
+.steps h3 { font-size: 26px; }
+.steps p { font-size: 16px; }
+.steps .btn { margin-top: 2px; }
+@media (max-width: 860px) {
+  .steps { grid-template-columns: 1fr; }
+  .steps li + li { border-left: 0; border-top: 3px dashed var(--pavement-dark); }
+}
+.sheet .steps { grid-template-columns: 1fr; margin-bottom: 4px; }
+.sheet .steps li + li { border-left: 0; border-top: 3px dashed var(--pavement-dark); }
+
+/* Rules as a ruled list: label left, detail right. Rows size to their own content. */
+.rulelist { margin: 48px 0 0; }
+.rulelist > div { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; border-top: 3px solid var(--ink); padding: 18px 0 10px; }
+.rulelist dt { font: 800 32px/1 var(--display); }
+.rulelist dd { margin: 0; max-width: 680px; }
+.rulelist .mult { max-width: 420px; }
+@media (max-width: 700px) { .rulelist > div { grid-template-columns: 1fr; gap: 8px; } }
 table.mult { width: 100%; border-collapse: collapse; }
 table.mult td { padding: 8px 0; border-bottom: 1px solid var(--pavement-dark); }
 table.mult td:last-child { text-align: right; font: 800 22px var(--display); }
