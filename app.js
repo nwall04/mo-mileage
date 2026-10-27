@@ -91,6 +91,9 @@ function friendlyError(e) {
   if (/mo_photos_user_id_week_key/.test(m)) return 'You already posted a mo this week. Delete it to post a new one.';
   if (/activity_flags_pkey/.test(m)) return 'You already questioned this entry.';
   if (/votes_pkey/.test(m)) return 'You already voted for that mo.';
+  if (/Error sending .*email/i.test(m)) return 'The email service rejected the message. The organizer needs to check the email settings.';
+  if (/rate limit/i.test(m)) return 'Too many sign-in emails were sent recently. Wait a few minutes and try again.';
+  if (/security purposes.*after (\d+) seconds/i.test(m)) return `Wait ${m.match(/after (\d+) seconds/i)[1]} seconds before asking for another email.`;
   if (/row-level security/.test(m)) return 'Sign in to do that.';
   if (/JWT|token/i.test(m)) return 'Your sign-in expired. Sign in again.';
   return m;
@@ -630,7 +633,7 @@ async function pageReview() {
 // Rules
 // ---------------------------------------------------------------------
 // The three-step joining sequence, shown on Rules and Sign up.
-function joinSteps() {
+function joinSteps(onJoinPage = false) {
   return `
     <ol class="steps">
       <li><span class="n">1</span><div><h3>Join our Movember team</h3>
@@ -640,7 +643,9 @@ function joinSteps() {
         <p>Once you are in, open your Mo Space on movember.com and copy the web address from the address bar. It starts with https://ca.movember.com/ or https://movember.com/.</p></div></li>
       <li><span class="n">3</span><div><h3>Sign up here</h3>
         <p>Enter your email, then paste your Mo Space link into your profile. Your name on the standings becomes a sponsor button.</p>
-        ${S.session && S.profile ? '' : '<a class="btn" href="#/join">Sign up on this site</a>'}</div></li>
+        ${S.session && S.profile ? '' : onJoinPage
+          ? '<button class="btn" type="button" id="to-email">Enter my email</button>'
+          : '<a class="btn" href="#/join">Sign up on this site</a>'}</div></li>
     </ol>`;
 }
 
@@ -681,12 +686,13 @@ async function pageJoin() {
     <div class="sheet">
       <h2>Sign up</h2>
       <p>Competing? Do steps 1 and 2 on Movember first, so you have your Mo Space link ready. Here only to vote and cheer, or already signed up? Go straight to your email.</p>
-      ${joinSteps()}
+      ${joinSteps(true)}
       <form class="panel" id="email-form">
         <p style="margin-top:0">No password. We email you a sign-in link and a 6-digit code.</p>
         <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
         <button class="btn primary block" style="margin-top:18px" id="email-btn">Email me a sign-in link</button>
+        <p id="email-status" class="small" style="margin:12px 0 0" role="status"></p>
       </form>
       <form class="panel" id="code-form" hidden>
         <p>Check your inbox and spam folder. Tap the link, or type the code here. The code works on any device.</p>
@@ -696,6 +702,10 @@ async function pageJoin() {
       </form>
     </div>`;
   let email = '';
+  document.getElementById('to-email')?.addEventListener('click', () => {
+    document.getElementById('email-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('email').focus({ preventScroll: true });
+  });
   document.getElementById('email-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('email-btn');
@@ -703,7 +713,13 @@ async function pageJoin() {
     btn.disabled = true; btn.textContent = 'Sending…';
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     btn.disabled = false; btn.textContent = 'Send it again';
-    if (error) return toast(friendlyError(error), true);
+    const status = document.getElementById('email-status');
+    if (error) {
+      console.error('signInWithOtp', error);
+      status.innerHTML = `<b style="color:var(--alert)">The email did not send.</b> ${esc(friendlyError(error))}${error.status ? ` (code ${esc(error.status)})` : ''}`;
+      return;
+    }
+    status.textContent = `Sent to ${email}. It can take a minute. Check spam too.`;
     document.getElementById('code-form').hidden = false;
     toast('Sent. Check your inbox.');
   });
