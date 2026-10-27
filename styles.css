@@ -266,3 +266,4 @@ textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
   .prof-stats { grid-template-columns: 1fr 1fr; }
   .small-mos { grid-template-columns: repeat(3, 1fr); gap: 10px; }
 }
+.opt-tag { display: inline-block; vertical-align: 4px; font: 700 13px var(--body); border: 2px solid var(--cobalt); color: var(--cobalt); border-radius: 3px; padding: 0 6px; margin-left: 4px; }

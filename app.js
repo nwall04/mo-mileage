@@ -645,13 +645,13 @@ async function pageReview() {
 function joinSteps(onJoinPage = false) {
   return `
     <ol class="steps">
-      <li><span class="n">1</span><div><h3>Join our Movember team</h3>
+      <li><span class="n">1</span><div><h3>Join our Movember team <span class="opt-tag">Fundraising</span></h3>
         <p>Sign up on Movember and join the Mo + Mileage team. This is where the money goes, and it gives you your own Mo Space fundraising page.</p>
         <a class="btn primary" href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">Go to the Movember team</a></div></li>
-      <li><span class="n">2</span><div><h3>Copy your Mo Space link</h3>
+      <li><span class="n">2</span><div><h3>Copy your Mo Space link <span class="opt-tag">Fundraising</span></h3>
         <p>Once you are in, open your Mo Space on movember.com and copy the web address from the address bar. It starts with https://ca.movember.com/ or https://movember.com/.</p></div></li>
       <li><span class="n">3</span><div><h3>Sign up here</h3>
-        <p>Enter your email, then paste your Mo Space link into your profile. Your name on the standings becomes a sponsor button.</p>
+        <p>Enter your email and pick your name for the standings. If you did steps 1 and 2, paste your Mo Space link and your name becomes a sponsor button.</p>
         ${S.session && S.profile ? '' : onJoinPage
           ? '<button class="btn" type="button" id="to-email">Enter my email</button>'
           : '<a class="btn" href="#/join">Sign up on this site</a>'}</div></li>
@@ -664,7 +664,8 @@ function pageRules() {
       <h2>Rules</h2>
       <p style="font-size:20px">November in Canada is dark at five and cold the rest of the time. This is a reason to get outside anyway, check in on each other, and raise money for men's mental health while doing it.</p>
 
-      <h3 style="margin-top:40px">Joining takes three steps, in this order</h3>
+      <h3 style="margin-top:40px">How to join</h3>
+      <p>Fundraising is encouraged, never required. If you only want to move, grow a mustache and compete, skip straight to step 3. You are on the standings either way.</p>
       ${joinSteps()}
 
       <dl class="rulelist">
@@ -694,7 +695,7 @@ async function pageJoin() {
   $app.innerHTML = `
     <div class="sheet">
       <h2>Sign up</h2>
-      <p>Competing? Do steps 1 and 2 on Movember first, so you have your Mo Space link ready. Here only to vote and cheer, or already signed up? Go straight to your email.</p>
+      <p>Fundraising? Do steps 1 and 2 on Movember first, so you have your Mo Space link ready. Only here to move and compete, to vote and cheer, or already signed up? Go straight to step 3.</p>
       ${joinSteps(true)}
       <form class="panel" id="email-form">
         <p style="margin-top:0">No password. We email you a sign-in link and a 6-digit code.</p>
@@ -754,9 +755,9 @@ function profileForm(isNew) {
       <input id="pn" maxlength="40" required value="${esc(p.display_name || '')}" placeholder="First name and last initial">
       <label for="ph">Town <span class="opt">(optional)</span></label>
       <input id="ph" maxlength="60" value="${esc(p.hometown || '')}" placeholder="Ottawa">
-      <label for="pm">Your Movember Mo Space link <span class="opt">(so people can sponsor you)</span></label>
+      <label for="pm">Your Movember Mo Space link <span class="opt">(optional, only if you are fundraising)</span></label>
       <input id="pm" type="url" value="${esc(p.mo_space_url || '')}" placeholder="https://movember.com/m/…">
-      <div class="hint">No Mo Space yet? <a href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">Join our Movember team</a> first, then open your Mo Space and copy the address. You can add it later from the Me page.</div>
+      <div class="hint">Not fundraising? Leave it blank. Want to start? <a href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">Join our Movember team</a>, open your Mo Space and copy the address. You can add it later from the Me page.</div>
       <label for="pb">Bio <span class="opt">(optional, 280 characters)</span></label>
       <textarea id="pb" maxlength="280" rows="3" placeholder="Why you are moving this month, your goal, your excuses">${esc(p.bio || '')}</textarea>
       <label for="ps">Strava profile <span class="opt">(optional)</span></label>
@@ -776,9 +777,6 @@ function bindProfile(isNew) {
   });
   document.getElementById('profile-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const competing = document.getElementById('pp').checked;
-    if (competing && !document.getElementById('pm').value.trim() &&
-        !confirm('No Mo Space link yet, so nobody can sponsor you from the standings. Save anyway and add it later?')) return;
     const row = {
       id: S.session.user.id,
       display_name: document.getElementById('pn').value.trim(),
