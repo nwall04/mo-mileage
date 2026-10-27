@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mo + Mileage</title>
+  <meta name="description" content="Grow a mustache, log your kilometres, and raise money for men's mental health with Movember.">
+  <meta property="og:title" content="Mo + Mileage">
+  <meta property="og:description" content="60 km each. One mustache. All of November. Raising money for men's mental health with Movember.">
+  <meta name="theme-color" content="#2440c8">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23fbfbf8'/%3E%3Crect width='64' height='16' fill='%232440c8'/%3E%3Cpath d='M8 40c6 6 14 4 20-3 2 2 6 2 8 0 6 7 14 9 20 3-2 7-12 11-20 5-2-1-6-1-8 0-8 6-18 2-20-5z' fill='%23000'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Big+Shoulders+Display:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#app">Skip to content</a>
+  <header class="top">
+    <a class="logo" href="#/" aria-label="Mo + Mileage home">Mo + Mileage</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#/" data-route="">Standings</a>
+      <a href="#/mo" data-route="mo">Mos</a>
+      <a href="#/feed" data-route="feed">Feed</a>
+      <a href="#/rules" data-route="rules">Rules</a>
+    </nav>
+    <div class="top-actions" id="top-actions"></div>
+  </header>
+
+  <div id="banner"></div>
+  <main id="app" class="wrap" tabindex="-1"></main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="#/" data-route="">Standings</a>
+    <a href="#/log" data-route="log">Log km</a>
+    <a href="#/mo" data-route="mo">Mos</a>
+    <a href="#/feed" data-route="feed">Feed</a>
+    <a href="#/me" data-route="me">Me</a>
+  </nav>
+
+  <footer class="foot wrap">
+    <p>Donations go straight to <a id="foot-team" target="_blank" rel="noopener">the Mo + Mileage team page on Movember</a>. This is a friends-and-family competition, not an official Movember site.</p>
+    <p>Having a hard time? In Canada, call or text 9-8-8, any hour, any day.</p>
+  </footer>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
