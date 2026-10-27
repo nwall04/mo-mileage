@@ -3,10 +3,10 @@
 A free, public Movember competition site: grow a mo, log kilometres, vote on mustaches, and push everyone toward the team donation page.
 
 - **Standings:** Overall, Kilometres, Mustache
-- **Log km:** any movement, with distance, moving time and required proof (Strava link or screenshot)
+- **Log km:** any movement, with distance, time and a proof photo (any app screenshot, watch, or treadmill screen) or a link
 - **Mustaches:** Shave-Down photo, then one photo a week, 3 votes per person per round
 - **Feed:** every entry with its proof, and a "Question this" button
-- **Review page (organizer):** paused entries, plus a weekly check against the Strava group challenge
+- **Review page (organizer):** every new entry with its proof photo, to approve or remove
 
 Everything runs on free tiers: GitHub Pages (website), Supabase (database, photos, email sign-in) and Brevo (sends the sign-in emails). Total cost: $0.
 
@@ -55,15 +55,11 @@ Supabase's built-in email only sends to your own team members, at about 2 per ho
    ```
 3. Refresh the site. A **Review** button appears in the header, and Remove/Hide buttons appear on the Feed and Mustaches pages.
 
-### 5. Strava group challenge (your Premium account) — 5 min
-This is the anti-cheat backstop for everyone on Strava.
-1. In the Strava mobile app, open **Groups**, go to **Challenges** and create a group challenge. Strava moves this menu around between app versions, so search its help centre for "group challenge" if it is not there.
-2. Type: **Most activity**, goal **distance**, dates **Nov 1 to Nov 30**, sports: Run, Walk, Hike, Wheelchair, Ride, Swim. Name it `Mo + Mileage`.
-3. Turn on **Allow participants to invite others**, then invite people. You can invite up to 199 people who follow you; invitees can invite their own followers.
-4. Copy the challenge invite link into `STRAVA_CHALLENGE_URL` in `config.js`.
-5. Once a week, open the challenge leaderboard on Strava and type each person's distance into the **Strava check** table on the Review page. Matching people get a "Strava checked" tag; anyone whose site total runs higher shows up in red.
+### 5. Database updates (run each once, in order)
+- `supabase/002_profiles.sql`: profile photos and bios
+- `supabase/003_practice_and_review.sql`: practice mode before Nov 1, and the review-everything queue
 
-Strava says each invitee needs a subscription, a free trial, or a free challenge left, so some free users may not be able to join. They still compete on the site with screenshots as proof.
+Both are add-only: they never delete data and are safe to run twice.
 
 ### 6. Optional extras
 - **Strava Club:** free, unlimited members, shared feed and kudos. Paste its link into `STRAVA_CLUB_URL`.
@@ -101,10 +97,10 @@ Overall score: 50 × (your points / leader's points) + 50 × (your votes / leade
 To change dates, multipliers or caps, edit `supabase/schema.sql` (functions `mo_week`, `kind_multiplier`, `activities_guard`) and the matching `WEEKS` in `config.js`, then re-run only the functions you changed. **Do not re-run the whole file after launch: its first block deletes all data.**
 
 ## Moderation
-- **Review page:** approve or remove paused entries. Flag notes are visible only to you, never to the person flagged.
+- **Review page:** every entry you have not approved or removed, with its proof photo. New entries count immediately; paused ones (pace check, three flags) count only once approved. "Approve all" clears a batch after a skim. Flag notes are visible only to you.
 - Remove a suspicious activity from the Feed, or hide a photo on the Mustaches page. Both stop counting immediately.
 - To unhide: Supabase **Table Editor > activities** (or `mo_photos`), set `hidden` to false.
 - To remove a person entirely: Supabase **Authentication > Users > Delete user**. Their profile, km, photos and votes go with them.
 
 ## Privacy note for participants
-Names, towns, km, moving times, notes, proof links, proof screenshots and mustache photos are public on the site. If you join the Strava group challenge, the organizer copies your challenge distance into the site's check table (only the pass/fail tag is public). Email addresses are never shown. Put this in your invite so nobody is surprised.
+Names, towns, km, moving times, notes, proof links, proof screenshots and mustache photos are public on the site. Email addresses are never shown. Put this in your invite so nobody is surprised.

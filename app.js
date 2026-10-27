@@ -80,20 +80,21 @@ function toast(msg, err = false) {
 function friendlyError(e) {
   const m = e?.message || String(e);
   if (/proof_url_once/.test(m)) return 'That Strava activity has already been logged. Each activity counts once.';
-  if (/proof_hash_once/.test(m)) return 'That exact screenshot has already been used. Upload the screenshot for this activity.';
-  if (/proof_required/.test(m)) return 'Add a Strava link or a screenshot as proof.';
+  if (/proof_hash_once/.test(m)) return 'That exact photo has already been used. Upload the photo for this activity.';
+  if (/proof_required/.test(m)) return 'Add a proof photo, or paste a link.';
   if (/mo_space_url/.test(m)) return 'Your Mo Space link must start with https:// and be on movember.com.';
   if (/strava_url/.test(m)) return 'Your Strava link must start with https://www.strava.com/';
   if (/display_name/.test(m)) return 'Your name must be 2 to 40 characters.';
   if (/proof_url/.test(m)) return 'The proof link must start with https://';
   if (/duration_min/.test(m)) return 'Add how long the activity took.';
-  if (/activity_date/.test(m)) return 'The date must be in November 2026.';
+  if (/activity_date/.test(m)) return 'Pick a date in November 2026.';
   if (/mo_photos_user_id_week_key/.test(m)) return 'You already posted a mo this week. Delete it to post a new one.';
   if (/activity_flags_pkey/.test(m)) return 'You already questioned this entry.';
   if (/votes_pkey/.test(m)) return 'You already voted for that mo.';
   if (/Error sending .*email/i.test(m)) return 'The email service rejected the message. The organizer needs to check the email settings.';
   if (/rate limit/i.test(m)) return 'Too many sign-in emails were sent recently. Wait a few minutes and try again.';
   if (/security purposes.*after (\d+) seconds/i.test(m)) return `Wait ${m.match(/after (\d+) seconds/i)[1]} seconds before asking for another email.`;
+  if (/Practice is over/.test(m)) return 'Practice is over. Log activities from November 1 onward.';
   if (/row-level security/.test(m)) return 'Sign in to do that.';
   if (/JWT|token/i.test(m)) return 'Your sign-in expired. Sign in again.';
   return m;
@@ -299,7 +300,6 @@ async function pageHome() {
         <div class="who"><a class="nm" href="#/p/${esc(r.user_id)}">${esc(r.display_name)}</a>
           <div class="meta">${r.hometown ? `<span>${esc(r.hometown)}</span>` : ''}
             ${km >= 200 ? '<span class="tag done">200 club</span>' : km >= 100 ? '<span class="tag done">100 club</span>' : km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
-            ${r.strava_checked ? '<span class="tag checked" title="Organizer matched this total to the Strava challenge">Strava checked</span>' : ''}
             ${r.mo_space_url ? `<a href="${esc(r.mo_space_url)}" target="_blank" rel="noopener">Sponsor ${esc(first(r.display_name))}</a>` : ''}</div>
           ${boardTab !== 'mo' ? `<div class="road" aria-label="${fmt(km)} of ${GOAL} km"><i style="width:${(100 * km) / scale}%"></i><s style="left:${(100 * GOAL) / scale}%"></s></div>` : ''}</div>
         <div class="val"><b>${esc(v)}</b><span>${unit}</span></div></li>`;
@@ -323,46 +323,60 @@ async function pageLog() {
   $app.innerHTML = loading();
   const mine = await api.myActivities();
   const t = today();
+  const practice = !challengeLive();
+  const minDate = practice ? CONFIG.WEEKS[0].start : '2026-11-01';
   const maxDate = t < '2026-11-30' ? t : '2026-11-30';
-  const live = challengeLive(), open = graceOpen();
-  const counted = mine.filter((a) => !a.hidden && !a.under_review);
+  const open = graceOpen();
+  const isPractice = (a) => a.activity_date < '2026-11-01';
+  const counted = mine.filter((a) => !a.hidden && !a.under_review && !isPractice(a));
   const total = counted.reduce((s, a) => s + a.distance_km * KINDS[a.kind].mult, 0);
+  const shown = practice ? mine : mine.filter((a) => !isPractice(a));
 
   $app.innerHTML = `
     <div class="sheet">
       <h2>Log kilometres</h2>
-      <div><span class="tally">${fmt(total)}</span> <span class="muted">of ${GOAL} km counted so far</span></div>
-      ${!live ? `<div class="panel"><h3>Logging opens November 1</h3><p>Until then, post your clean-shaven <a href="#/mo">Shave-Down photo</a>.</p></div>`
-      : !open ? `<div class="panel"><h3>Logging is closed</h3><p>Final results are on the standings page. Thank you for moving.</p></div>` : `
+      <div><span class="tally">${fmt(total)}</span> <span class="muted">km counted so far. ${GOAL} is the floor.</span></div>
+      ${practice ? `<p class="notice" style="margin-top:18px">Practice mode until November 1. Try it out: anything you log now gets a Practice tag, never counts, and disappears on November 1.</p>` : ''}
+      ${!open ? `<div class="panel"><h3>Logging is closed</h3><p>Final results are on the standings page. Thank you for moving.</p></div>` : `
       <form class="panel" id="log-form" novalidate>
         <div class="pair">
-          <div><label for="kind">Activity</label><select id="kind">
+          <div><label for="kind" style="margin-top:0">Activity</label><select id="kind">
             ${Object.entries(KINDS).map(([k, v]) => `<option value="${k}">${v.label}${v.mult !== 1 ? ` (counts ×${v.mult})` : ''}</option>`).join('')}</select></div>
-          <div><label for="date">Date</label><input id="date" type="date" min="2026-11-01" max="${maxDate}" value="${maxDate}"></div>
+          <div><label for="date" style="margin-top:0">Date</label><input id="date" type="date" min="${minDate}" max="${maxDate}" value="${maxDate}"></div>
         </div>
         <label for="km">Distance in km</label>
         <input id="km" type="number" inputmode="decimal" step="0.01" min="0.1" placeholder="5.0">
-        <div class="hint">Strava set to miles? Multiply by 1.609.</div>
-        <label for="hrs">Moving time</label>
+        <div class="hint">App set to miles? Multiply by 1.609.</div>
+        <label for="hrs">How long it took</label>
         <div class="pair keep">
           <div><input id="hrs" type="number" inputmode="numeric" min="0" max="23" placeholder="0" aria-label="Hours"><div class="hint">hours</div></div>
           <div><input id="mins" type="number" inputmode="numeric" min="0" max="59" placeholder="45" aria-label="Minutes"><div class="hint">minutes</div></div>
         </div>
         <div class="pace" id="pace"></div>
-        <label for="proof">Proof: Strava activity link</label>
-        <input id="proof" type="url" placeholder="https://www.strava.com/activities/…">
-        <label for="shot">or a screenshot from any app <span class="opt">(Garmin, Apple Health, treadmill screen)</span></label>
-        <input id="shot" type="file" accept="image/*">
-        <div class="hint">One of the two is required. Each Strava activity and each screenshot can only be logged once.</div>
+
+        <label for="shot">Proof photo</label>
+        <label class="drop" for="shot" id="drop">
+          <img id="shot-prev" alt="" hidden>
+          <span id="drop-text"><b>Tap to add a photo</b>
+          A screenshot from any app (Apple Health, Apple Fitness, Garmin, Strava, Nike Run Club), a photo of your watch, or a photo of the treadmill screen. Anything showing the distance works.</span>
+        </label>
+        <input id="shot" type="file" accept="image/*" class="visually-hidden">
+        <p class="hint"><button type="button" class="linkbtn" id="use-link">No photo? Paste a Strava or app link instead</button></p>
+        <div id="link-box" hidden>
+          <label for="proof">Activity link</label>
+          <input id="proof" type="url" placeholder="https://www.strava.com/activities/…">
+        </div>
+
         <label for="note">Note <span class="opt">(optional, shows in the feed)</span></label>
         <input id="note" maxlength="140" placeholder="Frozen canal, zero regrets">
-        <button class="btn primary block" style="margin-top:22px" id="log-btn">Add to my total</button>
-        ${CONFIG.STRAVA_CHALLENGE_URL ? `<p class="hint" style="margin-top:14px">On Strava? <a href="${esc(CONFIG.STRAVA_CHALLENGE_URL)}" target="_blank" rel="noopener">Join the Strava group challenge</a> too, so the organizer can confirm your total.</p>` : ''}
+        <button class="btn primary block" style="margin-top:22px" id="log-btn">${practice ? 'Save practice entry' : 'Add to my total'}</button>
+        <p class="hint" style="margin-top:12px">The organizer looks over every entry. Entries count right away, and anything that does not add up gets removed.</p>
       </form>`}
       <div class="panel"><h3>My entries</h3>
-        ${mine.length ? `<ul class="log">${mine.map((a) => `<li>
+        ${shown.length ? `<ul class="log">${shown.map((a) => `<li>
           <div class="km">${fmt(a.distance_km)}<small>km</small></div>
           <div class="what"><b>${esc(KINDS[a.kind].label)}</b>, ${prettyDate(a.activity_date)}, ${duration(a.duration_min)}
+            ${isPractice(a) ? ' <span class="tag">Practice</span>' : ''}${a.cleared && !a.hidden ? ' <span class="tag checked">Checked</span>' : ''}
             ${a.under_review ? `<div><span class="tag review">Being checked</span> <span class="small muted">${esc(a.review_reason || '')}. Not counted until the organizer clears it.</span></div>` : ''}
             ${a.hidden ? '<div><span class="tag review">Removed by organizer</span></div>' : ''}
             ${a.note ? `<div class="small muted">${esc(a.note)}</div>` : ''}</div>
@@ -389,29 +403,42 @@ async function pageLog() {
         : `Pace ${pace(min, km)}.${pts}`;
     };
     ['kind', 'km', 'hrs', 'mins'].forEach((id) => form[id].addEventListener('input', upd));
+    const shot = document.getElementById('shot');
+    shot.addEventListener('change', () => {
+      const f = shot.files[0]; if (!f) return;
+      const img = document.getElementById('shot-prev');
+      img.src = URL.createObjectURL(f); img.hidden = false;
+      document.getElementById('drop-text').innerHTML = '<b>Photo added.</b> Tap to change it.';
+    });
+    document.getElementById('use-link').addEventListener('click', () => {
+      const box = document.getElementById('link-box'); box.hidden = !box.hidden;
+      if (!box.hidden) form.proof.focus();
+    });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const { kind, km, min } = read();
       const K = KINDS[kind];
       const proof = form.proof.value.trim();
-      const file = form.shot.files[0];
+      const file = shot.files[0];
       if (!(km > 0)) return toast('Enter the distance in km.', true);
       if (km > K.cap) return toast(`One ${K.label.toLowerCase()} can be at most ${K.cap} km. Log separate days separately.`, true);
       if (!(min > 0)) return toast('Enter how long it took.', true);
-      if (!proof && !file) return toast('Add a Strava link or a screenshot as proof.', true);
-      if (proof && !/^https:\/\//i.test(proof)) return toast('The proof link must start with https://', true);
+      if (!proof && !file) return toast('Add a proof photo, or paste a link.', true);
+      if (proof && !/^https:\/\//i.test(proof)) return toast('The link must start with https://', true);
       const btn = document.getElementById('log-btn');
-      btn.disabled = true; btn.textContent = 'Saving…';
+      const label = btn.textContent;
+      btn.disabled = true; btn.textContent = file ? 'Uploading photo…' : 'Saving…';
       try {
         let proof_path = null, proof_hash = null;
         if (file) { proof_hash = await sha256(file); proof_path = await uploadImage('proof', file); }
         const [row] = await q(sb.from('activities').insert({ kind, activity_date: form.date.value, distance_km: km, duration_min: min,
           proof_url: proof || null, proof_path, proof_hash, note: form.note.value.trim() || null }).select());
-        toast(row?.under_review ? 'Saved. It goes to the organizer for a quick check before it counts.' : `${fmt(km, 2)} km added.`);
+        toast(form.date.value < '2026-11-01' ? 'Practice entry saved. It works. It will not count.'
+          : row?.under_review ? 'Saved. It goes to the organizer for a quick check before it counts.' : `${fmt(km, 2)} km added.`);
         pageLog();
       } catch (err) {
         toast(friendlyError(err), true);
-        btn.disabled = false; btn.textContent = 'Add to my total';
+        btn.disabled = false; btn.textContent = label;
       }
     });
   }
@@ -539,7 +566,7 @@ async function pageFeed() {
             <div class="km">${fmt(a.distance_km)}<small>km</small></div>
             <div class="what">
               <div><a class="who-link" href="#/p/${esc(a.user_id)}">${esc(a.display_name)}</a> ${K.verb} ${fmt(a.distance_km)} km in ${duration(a.duration_min)}${K.mult !== 1 ? `, counts as ${fmt(a.points)}` : ''}
-                ${a.under_review ? ' <span class="tag review">Being checked</span>' : ''}</div>
+                ${a.practice ? ' <span class="tag">Practice</span>' : ''}${a.under_review ? ' <span class="tag review">Being checked</span>' : a.checked ? ' <span class="tag checked">Checked</span>' : ''}</div>
               ${a.note ? `<div>${esc(a.note)}</div>` : ''}
               <div class="links">
                 ${a.proof_url ? `<a href="${esc(a.proof_url)}" target="_blank" rel="noopener nofollow">${/strava/i.test(a.proof_url) ? 'Strava activity' : 'Proof link'}</a>` : ''}
@@ -578,62 +605,47 @@ async function pageFeed() {
 }
 
 // ---------------------------------------------------------------------
-// Organizer: review queue + Strava reconciliation
+// Organizer: one queue of every entry not yet approved or removed
 // ---------------------------------------------------------------------
 async function pageReview() {
   if (needAuth('The review page')) return;
   if (!S.isAdmin) { location.hash = '#/'; return; }
   $app.innerHTML = loading();
-  const [queue, lb, checks] = await Promise.all([
-    q(sb.from('review_queue').select('*').order('created_at')),
-    api.leaderboard(),
-    q(sb.from('strava_checks').select('*')),
-  ]);
-  const byUser = Object.fromEntries(checks.map((c) => [c.user_id, c]));
-  const people = [...lb].sort((a, b) => a.display_name.localeCompare(b.display_name));
+  const queue = await q(sb.from('review_queue').select('*').order('under_review', { ascending: false }).order('created_at'));
+  const paused = queue.filter((a) => a.under_review);
+  const fresh = queue.filter((a) => !a.under_review);
+  const item = (a) => `<li>
+    ${a.proof_path ? `<a href="${esc(photoUrl(a.proof_path, 'proof'))}" target="_blank" rel="noopener" title="Open full size"><img class="proof-thumb" src="${esc(photoUrl(a.proof_path, 'proof'))}" alt="Proof photo" loading="lazy"></a>`
+      : `<div class="proof-thumb none">Link</div>`}
+    <div class="what"><div><b>${esc(a.display_name)}</b> ${esc(KINDS[a.kind].verb)} <b>${fmt(a.distance_km)} km</b> in ${duration(a.duration_min)} (${pace(a.duration_min, a.distance_km)})${a.practice ? ' <span class="tag">Practice</span>' : ''}</div>
+      <div class="small muted">${prettyDate(a.activity_date)}${a.note ? `. ${esc(a.note)}` : ''}</div>
+      ${a.under_review ? `<div class="small"><b>Paused:</b> ${esc(a.review_reason || '')}${a.flag_reasons ? `. <b>Notes:</b> ${esc(a.flag_reasons)}` : ''}</div>` : ''}
+      ${a.proof_url ? `<div class="links"><a href="${esc(a.proof_url)}" target="_blank" rel="noopener">Open proof link</a></div>` : ''}</div>
+    <div class="side"><button class="btn sm primary" data-ok="${a.id}">Approve</button><button class="btn sm line" data-no="${a.id}">Remove</button></div></li>`;
 
   $app.innerHTML = `
     <section class="block">
       <h2>Review</h2>
-      <h3 style="margin-top:24px">Paused entries (${queue.length})</h3>
-      <p class="small muted">Entries that failed the pace check or were questioned by three people. They do not count until you approve them.</p>
-      <ul class="log">${queue.length ? queue.map((a) => `<li>
-        <div class="km">${fmt(a.distance_km)}<small>km</small></div>
-        <div class="what"><b>${esc(a.display_name)}</b>, ${esc(KINDS[a.kind].label)}, ${duration(a.duration_min)} (${pace(a.duration_min, a.distance_km)}), ${prettyDate(a.activity_date)}
-          <div class="small"><b>Why:</b> ${esc(a.review_reason || '')}${a.flag_reasons ? `. <b>Notes:</b> ${esc(a.flag_reasons)}` : ''}</div>
-          ${a.note ? `<div class="small muted">${esc(a.note)}</div>` : ''}
-          <div class="links">${a.proof_url ? `<a href="${esc(a.proof_url)}" target="_blank" rel="noopener">Proof link</a>` : ''}${a.proof_path ? `<a href="${esc(photoUrl(a.proof_path, 'proof'))}" target="_blank" rel="noopener">Screenshot</a>` : ''}</div></div>
-        <div class="side"><button class="btn sm primary" data-ok="${a.id}">Approve</button><button class="btn sm line" data-no="${a.id}">Remove</button></div></li>`).join('')
-        : '<li class="blank" style="display:block">Nothing waiting.</li>'}</ul>
-
-      <h3 style="margin-top:40px">Strava check</h3>
-      <p class="small muted">Once a week, open the Strava group challenge leaderboard and type each person's distance here. Anyone whose site total is within 5% (plus 1 km) of their Strava total gets a "Strava checked" tag. People not on Strava are checked through their screenshots instead.</p>
-      <div class="scroll"><table class="recon">
-        <thead><tr><th>Person</th><th>Site km (actual distance)</th><th>Strava km</th><th>Last checked</th><th>Result</th></tr></thead>
-        <tbody>${people.map((p) => {
-          const c = byUser[p.user_id];
-          const diff = c ? Number(p.raw_km) - Number(c.strava_km) : null;
-          const res = !c ? '<span class="muted">Not checked</span>' : p.strava_checked ? '<span class="good">Matches</span>' : `<span class="bad">Site is ${fmt(diff)} km higher</span>`;
-          return `<tr><td>${esc(p.display_name)}</td><td>${fmt(p.raw_km)}</td>
-            <td><input type="number" step="0.1" min="0" data-uid="${p.user_id}" value="${c ? esc(c.strava_km) : ''}" aria-label="Strava km for ${esc(p.display_name)}"></td>
-            <td>${c ? prettyDate(c.checked_on) : ''}</td><td>${res}</td></tr>`;
-        }).join('')}</tbody></table></div>
-      <button class="btn primary" id="save-checks" style="margin-top:16px">Save Strava totals</button>
+      <p>Every new entry lands here. New entries already count; approve the ones that look right and remove the ones that do not. Paused entries (too fast for the pace check, or questioned by three people) do not count until you approve them.</p>
+      <h3 style="margin-top:28px">Paused, not counting (${paused.length})</h3>
+      <ul class="log review">${paused.length ? paused.map(item).join('') : '<li class="blank" style="display:block">Nothing paused.</li>'}</ul>
+      <div class="head" style="margin-top:40px"><h3 style="margin:0">New entries to check (${fresh.length})</h3>
+        ${fresh.length > 1 ? '<button class="btn sm" id="ok-all">Approve all new entries</button>' : ''}</div>
+      <ul class="log review">${fresh.length ? fresh.map(item).join('') : '<li class="blank" style="display:block">All caught up.</li>'}</ul>
     </section>`;
 
+  const approve = async (ids) => q(sb.from('activities').update({ under_review: false, cleared: true }).in('id', ids));
   $app.querySelectorAll('[data-ok]').forEach((b) => b.addEventListener('click', async () => {
-    try { await q(sb.from('activities').update({ under_review: false, cleared: true }).eq('id', b.dataset.ok)); toast('Approved. It counts now.'); pageReview(); }
-    catch (err) { toast(friendlyError(err), true); }
+    try { await approve([Number(b.dataset.ok)]); toast('Approved.'); pageReview(); } catch (err) { toast(friendlyError(err), true); }
   }));
   $app.querySelectorAll('[data-no]').forEach((b) => b.addEventListener('click', async () => {
-    if (!confirm('Remove this entry for good?')) return;
-    try { await q(sb.from('activities').update({ hidden: true }).eq('id', b.dataset.no)); toast('Entry removed.'); pageReview(); }
+    if (!confirm('Remove this entry? It stops counting immediately.')) return;
+    try { await q(sb.from('activities').update({ hidden: true }).eq('id', b.dataset.no)); toast('Removed.'); pageReview(); }
     catch (err) { toast(friendlyError(err), true); }
   }));
-  document.getElementById('save-checks').addEventListener('click', async () => {
-    const rows = [...$app.querySelectorAll('[data-uid]')].filter((i) => i.value !== '')
-      .map((i) => ({ user_id: i.dataset.uid, strava_km: Number(i.value), checked_on: today() }));
-    try { if (rows.length) await q(sb.from('strava_checks').upsert(rows)); toast(`Saved ${rows.length} Strava totals.`); pageReview(); }
+  document.getElementById('ok-all')?.addEventListener('click', async () => {
+    if (!confirm(`Approve all ${fresh.length} new entries? Paused ones are not included.`)) return;
+    try { await approve(fresh.map((a) => a.id)); toast(`Approved ${fresh.length} entries.`); pageReview(); }
     catch (err) { toast(friendlyError(err), true); }
   });
 }
@@ -670,7 +682,7 @@ function pageRules() {
 
       <dl class="rulelist">
         <div><dt>Move</dt><dd>
-          <p>Anything under your own power from November 1 to 30. Movember's target is ${GOAL} km. Treat that as the floor, not the finish line: the standings tag you at 60, 100 and 200 km.</p>
+          <p>Anything under your own power from November 1 to 30. Want to try logging first? It works in practice mode until November 1. Movember's target is ${GOAL} km. Treat that as the floor, not the finish line: the standings tag you at 60, 100 and 200 km.</p>
           <table class="mult">${Object.values(KINDS).map((k) => `<tr><td>${k.label}</td><td>×${k.mult}</td></tr>`).join('')}</table>
           <p class="small muted" style="margin-top:10px">A bike covers ground much faster than legs, and a kilometre in the pool is a lot of work. The multipliers keep everyone on one fair board.</p></dd></div>
         <div><dt>Mustache</dt><dd>
@@ -678,7 +690,7 @@ function pageRules() {
         <div><dt>Scoreboards</dt><dd>
           <p><b>Kilometres:</b> total counted km. <b>Mustache:</b> total votes across the four weekly rounds. <b>Overall:</b> up to 50 points for each, measured against the leader of each board. You need both to win it.</p></dd></div>
         <div><dt>Keeping it honest</dt><dd>
-          <p>Every entry needs proof: a Strava activity link or a screenshot from any app. Each Strava activity and each screenshot can only be used once. Entries faster than a believable pace, or questioned by three people, pause until the organizer checks them. On Strava? Join the group challenge too, and the organizer will match your total against it each week.</p>
+          <p>Every entry needs a proof photo: a screenshot from any app, a photo of your watch, or a photo of the treadmill screen. A Strava link works too. No Strava needed. Each photo and link can only be used once. The organizer looks over every entry and removes anything that does not add up. Entries faster than a believable pace, or questioned by three people, pause until the organizer checks them.</p>
           <p class="small muted">Max ${KINDS.run.cap} km per entry (${KINDS.cycle.cap} on a bike, ${KINDS.swim.cap} in the pool). Logging closes December 2. Questions go to ${esc(CONFIG.ORGANIZER_NAME)}${CONFIG.ORGANIZER_EMAIL ? ` at <a href="mailto:${esc(CONFIG.ORGANIZER_EMAIL)}">${esc(CONFIG.ORGANIZER_EMAIL)}</a>` : ''}.</p></dd></div>
         <div><dt>Look after each other</dt><dd>
           <p>Use the month as an excuse to check in on your people, and ask twice. If you or someone you know is struggling, call or text 9-8-8 (Canada's Suicide Crisis Helpline), any hour, any day.</p></dd></div>
@@ -812,7 +824,7 @@ async function pageMe() {
       <p><a href="#/p/${esc(S.profile.id)}">See your public page</a></p>
       ${profileForm(false)}
       ${S.isAdmin ? `<form class="panel" id="admin-form"><h3>Organizer</h3>
-        <p class="small muted">Copy the raised total from the Movember team page now and then. Paused entries and Strava checks are on the <a href="#/review">Review page</a>.</p>
+        <p class="small muted">Copy the raised total from the Movember team page now and then. New and paused entries are on the <a href="#/review">Review page</a>.</p>
         <div class="pair"><div><label for="ar">Raised ($)</label><input id="ar" type="number" step="1" min="0" value="${esc(s.raised_amount)}"></div>
         <div><label for="ag">Goal ($)</label><input id="ag" type="number" step="1" min="0" value="${esc(s.goal_amount)}"></div></div>
         <label for="an">Announcement <span class="opt">(leave blank to hide)</span></label>
@@ -869,7 +881,6 @@ async function pageProfile(id) {
           <h2>${esc(name)}</h2>
           <div class="meta">${prof.hometown ? `<span>${esc(prof.hometown)}</span>` : ''}
             ${km >= 200 ? '<span class="tag done">200 club</span>' : km >= 100 ? '<span class="tag done">100 club</span>' : km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
-            ${row?.strava_checked ? '<span class="tag checked">Strava checked</span>' : ''}
             ${!prof.is_participant ? '<span class="tag">Cheering</span>' : ''}</div>
           ${prof.bio ? `<p class="bio">${esc(prof.bio)}</p>` : mine ? '<p class="muted">No bio yet. <a href="#/me">Add one</a>.</p>' : ''}
           <div class="actions">
