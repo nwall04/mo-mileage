@@ -217,7 +217,14 @@ function renderChrome(route) {
   const act = document.getElementById('top-actions');
   act.innerHTML = S.session && S.profile
     ? `${S.isAdmin ? '<a class="btn sm line" href="#/review">Review</a>' : ''}<a class="btn sm hivis" href="#/log">Log km</a><a class="btn sm line" href="#/me">${esc(first(S.profile.display_name))}</a>`
-    : `<a class="btn sm line" href="${esc(CONFIG.DONATE_URL)}" target="_blank" rel="noopener">Donate</a><a class="btn sm hivis" href="#/join">Join</a>`;
+    : `<a class="btn sm line" href="#/signin">Sign in</a><a class="btn sm hivis" href="#/join">Join</a>`;
+  const meTab = document.querySelector('.tabbar [data-route="me"]');
+  if (meTab) {
+    const signedIn = !!(S.session && S.profile);
+    meTab.textContent = signedIn ? 'Me' : 'Sign in';
+    meTab.href = signedIn ? '#/me' : '#/signin';
+    meTab.classList.toggle('active', route === 'me' || (!signedIn && route === 'signin'));
+  }
   document.getElementById('banner').innerHTML = CONFIGURED ? '' :
     '<div class="demo-banner">Preview with sample people. Add your Supabase keys in <code>config.js</code> to go live.</div>';
   document.getElementById('foot-team').href = CONFIG.MOVEMBER_TEAM_URL;
@@ -228,7 +235,8 @@ function needAuth(what) {
     $app.innerHTML = `<div class="sheet"><h2>Not live yet</h2><p>${esc(what)} works once the site is connected to its database. The README has the setup steps.</p><a class="btn" href="#/">Back to standings</a></div>`;
     return true;
   }
-  if (!S.session || !S.profile) { location.hash = '#/join'; return true; }
+  if (!S.session) { location.hash = '#/signin'; return true; }
+  if (!S.profile) { location.hash = '#/join'; return true; }
   return false;
 }
 
@@ -701,16 +709,19 @@ function pageRules() {
 // ---------------------------------------------------------------------
 // Sign up / profile
 // ---------------------------------------------------------------------
-async function pageJoin() {
+async function pageJoin(mode = 'join') {
+  const signin = mode === 'signin';
   if (!CONFIGURED) return needAuth('Signing up');
-  if (S.session && S.profile) { location.hash = '#/me'; return; }
+  if (S.session && S.profile) { location.hash = signin ? '#/' : '#/me'; return; }
   $app.innerHTML = `
     <div class="sheet">
-      <h2>Sign up</h2>
-      <p>Fundraising? Do steps 1 and 2 on Movember first, so you have your Mo Space link ready. Only here to move and compete, to vote and cheer, or already signed up? Go straight to step 3.</p>
-      ${joinSteps(true)}
+      ${signin ? `<h2>Sign in</h2>
+      <p>Enter the email you signed up with. We send you a sign-in link and a 6-digit code. New here? <a href="#/join">Join instead</a>.</p>`
+      : `<h2>Sign up</h2>
+      <p>Fundraising? Do steps 1 and 2 on Movember first, so you have your Mo Space link ready. Only here to move and compete, or to vote and cheer? Go straight to step 3. Already signed up? <a href="#/signin">Sign in</a>.</p>
+      ${joinSteps(true)}`}
       <form class="panel" id="email-form">
-        <p style="margin-top:0">No password. We email you a sign-in link and a 6-digit code.</p>
+        ${signin ? '' : '<p style="margin-top:0">No password. We email you a sign-in link and a 6-digit code. You stay signed in on this device after that.</p>'}
         <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
         <button class="btn primary block" style="margin-top:18px" id="email-btn">Email me a sign-in link</button>
@@ -920,7 +931,7 @@ async function pageProfile(id) {
 // ---------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------
-const ROUTES = { '': pageHome, log: pageLog, mo: pageMo, feed: pageFeed, rules: pageRules, join: pageJoin, me: pageMe, review: pageReview };
+const ROUTES = { '': pageHome, log: pageLog, mo: pageMo, feed: pageFeed, rules: pageRules, join: () => pageJoin('join'), signin: () => pageJoin('signin'), me: pageMe, review: pageReview };
 
 async function route() {
   // Supabase puts sign-in tokens in the URL hash; give the client a moment to read them.
@@ -933,7 +944,7 @@ async function route() {
   const fn = name === 'p' && parts[1] ? () => pageProfile(decodeURIComponent(parts[1])) : (ROUTES[name] || pageHome);
   renderChrome(ROUTES[name] ? name : name === 'p' ? 'p' : '');
   try {
-    if (name === 'join' && S.session && !S.profile) {
+    if ((name === 'join' || name === 'signin') && S.session && !S.profile) {
       $app.innerHTML = `<div class="sheet">${profileForm(true)}</div>`;
       bindProfile(true);
     } else {
