@@ -16,7 +16,7 @@ export const CONFIG = {
 
   // Paste the invite link to your Strava Group Challenge (and club, if you make one)
   STRAVA_CHALLENGE_URL: '',
-  STRAVA_CLUB_URL: '',
+  STRAVA_CLUB_URL: 'https://www.strava.com/clubs/2397681',
 
   // Organizer contact shown on the rules page
   ORGANIZER_NAME: 'Noah',

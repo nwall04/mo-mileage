@@ -114,13 +114,20 @@ function loadImage(file) {
     img.src = url;
   });
 }
-async function compress(file, max = 1600) {
+async function compress(file, max = 1600, square = false) {
   const { img, url } = await loadImage(file);
-  const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const c = document.createElement('canvas');
-  c.width = Math.round(img.naturalWidth * scale);
-  c.height = Math.round(img.naturalHeight * scale);
-  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  if (square) {
+    // Centre-crop to a square, then shrink: profile photos look right in a circle.
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    c.width = c.height = Math.min(max, side);
+    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, c.width, c.height);
+  } else {
+    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    c.width = Math.round(img.naturalWidth * scale);
+    c.height = Math.round(img.naturalHeight * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  }
   URL.revokeObjectURL(url);
   return await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
 }
@@ -129,8 +136,8 @@ async function sha256(file) {
   const buf = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
-async function uploadImage(bucket, file) {
-  const blob = await compress(file);
+async function uploadImage(bucket, file, max = 1600, square = false) {
+  const blob = await compress(file, max, square);
   const path = `${S.session.user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
   const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
   if (error) throw error;
@@ -151,7 +158,7 @@ const DEMO = (() => {
   const tones = ['#2440c8', '#000', '#5b6168', '#2440c8', '#000', '#5b6168', '#2440c8', '#000'];
   const moSvg = (i, n) => 'data:image/svg+xml,' + encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#e4e6e1"/><circle cx="100" cy="96" r="62" fill="#e9cdb4"/><circle cx="78" cy="82" r="6" fill="#000"/><circle cx="122" cy="82" r="6" fill="#000"/><path d="M44 116c14 ${8 + n} 36 6 50-6 4 3 8 3 12 0 14 12 36 ${14 + n} 50 6-6 18-30 26-52 12-4-2-8-2-12 0-22 14-46 6-48-12z" fill="${tones[i]}"/><text x="100" y="190" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#474c52">sample</text></svg>`);
-  const lb = rows.map(([n, h, km, v, chk], i) => ({ user_id: 'd' + i, display_name: n, hometown: h, km_points: km, raw_km: km, mo_votes: v, strava_checked: chk, photo_path: moSvg(i, v), mo_space_url: CONFIG.MOVEMBER_TEAM_URL }));
+  const lb = rows.map(([n, h, km, v, chk], i) => ({ user_id: 'd' + i, display_name: n, hometown: h, km_points: km, raw_km: km, mo_votes: v, strava_checked: chk, photo_path: moSvg(i, v), mo_space_url: CONFIG.MOVEMBER_TEAM_URL, is_participant: true }));
   const maxK = Math.max(...lb.map((r) => r.km_points)), maxV = Math.max(...lb.map((r) => r.mo_votes));
   lb.forEach((r) => (r.moathlete_score = Math.round((50 * r.km_points / maxK + 50 * r.mo_votes / maxV) * 10) / 10));
   const kinds = ['run', 'walk', 'cycle', 'hike', 'run', 'swim', 'walk', 'run'];
@@ -162,6 +169,8 @@ const DEMO = (() => {
     proof_url: i % 2 ? '' : 'https://www.strava.com/', proof_path: i % 2 ? 'data:,' : '' }));
   const gallery = lb.map((r, i) => ({ id: i, user_id: r.user_id, display_name: r.display_name, week: 1, storage_path: r.photo_path,
     caption: ['Day 7. Itchy.', 'Pencil-thin and proud', '', 'The Selleck starter kit', '', 'Patchy but persistent', '', 'Mo or shadow?'][i], votes: r.mo_votes, created_at: new Date().toISOString() }));
+  const bios = ['Running for my dad. Shaving on December 1, not a day before.', 'Canal loops at 6am. Send coffee.', '', 'Trail guy. The mo is a work in progress.', '', '', '', ''];
+  lb.forEach((r, i) => (r.bio = bios[i]));
   return { lb, feed, gallery, totals: { participants: 8, total_km: lb.reduce((a, r) => a + r.raw_km, 0), hit_60: 3, mo_photos: 8 },
     settings: { raised_amount: 1240, goal_amount: 2500, announcement: '' } };
 })();
@@ -287,7 +296,7 @@ async function pageHome() {
       const mine = S.session && r.user_id === S.session.user.id;
       return `<li class="${mine ? 'me' : ''}">
         <div class="pos">${r._pos}</div>${face(r)}
-        <div class="who"><div class="nm">${esc(r.display_name)}</div>
+        <div class="who"><a class="nm" href="#/p/${esc(r.user_id)}">${esc(r.display_name)}</a>
           <div class="meta">${r.hometown ? `<span>${esc(r.hometown)}</span>` : ''}
             ${km >= 200 ? '<span class="tag done">200 club</span>' : km >= 100 ? '<span class="tag done">100 club</span>' : km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
             ${r.strava_checked ? '<span class="tag checked" title="Organizer matched this total to the Strava challenge">Strava checked</span>' : ''}
@@ -453,7 +462,7 @@ async function pageMo() {
         ${sorted.map((p) => {
           const own = p.user_id === uid, voted = myVoteIds.has(p.id);
           return `<figure class="mo" style="margin:0"><img src="${esc(photoUrl(p.storage_path))}" alt="${esc(p.display_name)}'s mustache" loading="lazy">
-            <div class="row"><div><div class="nm">${esc(p.display_name)}</div>${moWeek > 0 ? `<div class="small muted">${p.votes} vote${p.votes == 1 ? '' : 's'}</div>` : ''}</div>
+            <div class="row"><div><a class="nm" href="#/p/${esc(p.user_id)}">${esc(p.display_name)}</a>${moWeek > 0 ? `<div class="small muted">${p.votes} vote${p.votes == 1 ? '' : 's'}</div>` : ''}</div>
               ${own ? `<button class="btn sm line" data-delphoto="${p.id}" data-path="${esc(p.storage_path)}">Delete</button>`
                 : canVote ? `<button class="btn sm vote${voted ? ' on' : ''}" data-vote="${p.id}" ${!voted && used >= 3 ? 'disabled' : ''} aria-pressed="${voted}">${voted ? 'Voted' : 'Vote'}</button>` : ''}
               ${S.isAdmin && !own ? `<button class="linkbtn" data-hidephoto="${p.id}">Hide</button>` : ''}</div>
@@ -529,7 +538,7 @@ async function pageFeed() {
           return `<li>
             <div class="km">${fmt(a.distance_km)}<small>km</small></div>
             <div class="what">
-              <div><b>${esc(a.display_name)}</b> ${K.verb} ${fmt(a.distance_km)} km in ${duration(a.duration_min)}${K.mult !== 1 ? `, counts as ${fmt(a.points)}` : ''}
+              <div><a class="who-link" href="#/p/${esc(a.user_id)}">${esc(a.display_name)}</a> ${K.verb} ${fmt(a.distance_km)} km in ${duration(a.duration_min)}${K.mult !== 1 ? `, counts as ${fmt(a.points)}` : ''}
                 ${a.under_review ? ' <span class="tag review">Being checked</span>' : ''}</div>
               ${a.note ? `<div>${esc(a.note)}</div>` : ''}
               <div class="links">
@@ -736,6 +745,11 @@ function profileForm(isNew) {
   return `
     <form class="panel" id="profile-form">
       <h3>${isNew ? 'Last step: your name on the board' : 'Your profile'}</h3>
+      <div class="avatar-edit">
+        ${p.avatar_path ? `<img class="face lg" id="av-prev" src="${esc(photoUrl(p.avatar_path))}" alt="">` : `<div class="face lg" id="av-prev">${esc(initials(p.display_name || '?'))}</div>`}
+        <div><label for="pa" style="margin-top:0">Profile photo <span class="opt">(optional)</span></label>
+          <input id="pa" type="file" accept="image/*"><div class="hint">Cropped to a circle. Shows on the standings and your page.</div></div>
+      </div>
       <label for="pn">Name</label>
       <input id="pn" maxlength="40" required value="${esc(p.display_name || '')}" placeholder="First name and last initial">
       <label for="ph">Town <span class="opt">(optional)</span></label>
@@ -743,6 +757,8 @@ function profileForm(isNew) {
       <label for="pm">Your Movember Mo Space link <span class="opt">(so people can sponsor you)</span></label>
       <input id="pm" type="url" value="${esc(p.mo_space_url || '')}" placeholder="https://movember.com/m/…">
       <div class="hint">No Mo Space yet? <a href="${esc(CONFIG.MOVEMBER_TEAM_URL)}" target="_blank" rel="noopener">Join our Movember team</a> first, then open your Mo Space and copy the address. You can add it later from the Me page.</div>
+      <label for="pb">Bio <span class="opt">(optional, 280 characters)</span></label>
+      <textarea id="pb" maxlength="280" rows="3" placeholder="Why you are moving this month, your goal, your excuses">${esc(p.bio || '')}</textarea>
       <label for="ps">Strava profile <span class="opt">(optional)</span></label>
       <input id="ps" type="url" value="${esc(p.strava_url || '')}" placeholder="https://www.strava.com/athletes/…">
       <label class="check" style="margin-top:20px"><input type="checkbox" id="pp" ${p.is_participant ? 'checked' : ''}> I am competing. Leave this unticked if you are only here to vote and cheer.</label>
@@ -750,6 +766,14 @@ function profileForm(isNew) {
     </form>`;
 }
 function bindProfile(isNew) {
+  const av = document.getElementById('pa');
+  av.addEventListener('change', () => {
+    if (!av.files[0]) return;
+    const prev = document.getElementById('av-prev');
+    const img = document.createElement('img');
+    img.className = 'face lg'; img.id = 'av-prev'; img.alt = ''; img.src = URL.createObjectURL(av.files[0]);
+    prev.replaceWith(img);
+  });
   document.getElementById('profile-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const competing = document.getElementById('pp').checked;
@@ -762,14 +786,22 @@ function bindProfile(isNew) {
       mo_space_url: document.getElementById('pm').value.trim() || null,
       strava_url: document.getElementById('ps').value.trim() || null,
       is_participant: document.getElementById('pp').checked,
+      bio: document.getElementById('pb').value.trim() || null,
     };
+    const btn = e.submitter; if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     try {
+      const old = S.profile?.avatar_path;
+      if (av.files[0]) row.avatar_path = await uploadImage('mo-photos', av.files[0], 600, true);
       await q(sb.from('profiles').upsert(row));
+      if (row.avatar_path && old) sb.storage.from('mo-photos').remove([old]);
       await loadUser();
       toast(isNew ? 'You are signed up.' : 'Profile saved.');
       location.hash = isNew ? '#/rules' : '#/me';
       if (!isNew) route();
-    } catch (err) { toast(friendlyError(err), true); }
+    } catch (err) {
+      toast(friendlyError(err), true);
+      if (btn) { btn.disabled = false; btn.textContent = isNew ? 'Finish signing up' : 'Save profile'; }
+    }
   });
 }
 
@@ -779,6 +811,7 @@ async function pageMe() {
   $app.innerHTML = `
     <div class="sheet">
       <h2>${esc(first(S.profile.display_name))}</h2>
+      <p><a href="#/p/${esc(S.profile.id)}">See your public page</a></p>
       ${profileForm(false)}
       ${S.isAdmin ? `<form class="panel" id="admin-form"><h3>Organizer</h3>
         <p class="small muted">Copy the raised total from the Movember team page now and then. Paused entries and Strava checks are on the <a href="#/review">Review page</a>.</p>
@@ -806,6 +839,76 @@ async function pageMe() {
 }
 
 // ---------------------------------------------------------------------
+// Public profile page: #/p/<id>
+// ---------------------------------------------------------------------
+async function pageProfile(id) {
+  $app.innerHTML = loading();
+  const [lb, prof, acts, mos] = await Promise.all([
+    api.leaderboard(),
+    sb ? q(sb.from('profiles').select('id, display_name, hometown, bio, avatar_path, mo_space_url, strava_url, is_participant').eq('id', id).maybeSingle())
+       : (DEMO.lb.find((r) => r.user_id === id) || null),
+    sb ? q(sb.from('activity_feed').select('*').eq('user_id', id).order('activity_date', { ascending: false }))
+       : DEMO.feed.filter((a) => a.user_id === id),
+    sb ? q(sb.from('mo_gallery').select('*').eq('user_id', id).order('week'))
+       : DEMO.gallery.filter((g) => g.user_id === id),
+  ]);
+  if (!prof) { $app.innerHTML = '<div class="sheet"><h2>Nobody here</h2><p>That profile does not exist, or the person left the challenge.</p><a class="btn" href="#/">Back to standings</a></div>'; return; }
+
+  const byKm = [...lb].sort((a, b) => Number(b.km_points) - Number(a.km_points));
+  const row = lb.find((r) => r.user_id === id);
+  const kmRank = byKm.findIndex((r) => r.user_id === id) + 1;
+  const km = Number(row?.km_points || 0);
+  const scale = Math.max(GOAL, km);
+  const pic = prof.avatar_path || row?.photo_path;
+  const mine = S.session?.user.id === id;
+  const name = prof.display_name;
+
+  $app.innerHTML = `
+    <section class="block">
+      <div class="prof-head">
+        ${pic ? `<img class="face xl" src="${esc(photoUrl(pic))}" alt="">` : `<div class="face xl" aria-hidden="true">${esc(initials(name))}</div>`}
+        <div class="prof-id">
+          <h2>${esc(name)}</h2>
+          <div class="meta">${prof.hometown ? `<span>${esc(prof.hometown)}</span>` : ''}
+            ${km >= 200 ? '<span class="tag done">200 club</span>' : km >= 100 ? '<span class="tag done">100 club</span>' : km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
+            ${row?.strava_checked ? '<span class="tag checked">Strava checked</span>' : ''}
+            ${!prof.is_participant ? '<span class="tag">Cheering</span>' : ''}</div>
+          ${prof.bio ? `<p class="bio">${esc(prof.bio)}</p>` : mine ? '<p class="muted">No bio yet. <a href="#/me">Add one</a>.</p>' : ''}
+          <div class="actions">
+            ${prof.mo_space_url ? `<a class="btn primary" href="${esc(prof.mo_space_url)}" target="_blank" rel="noopener">Sponsor ${esc(first(name))}</a>` : ''}
+            ${prof.strava_url ? `<a class="btn line" href="${esc(prof.strava_url)}" target="_blank" rel="noopener">Strava profile</a>` : ''}
+            ${mine ? '<a class="btn line" href="#/me">Edit my profile</a>' : ''}
+          </div>
+        </div>
+      </div>
+
+      ${prof.is_participant && row ? `
+      <div class="prof-stats">
+        <div><b>${fmt(km)}</b>counted km</div>
+        <div><b>${kmRank ? `#${kmRank}` : '–'}</b>of ${lb.length} on kilometres</div>
+        <div><b>${row.mo_votes}</b>mustache vote${row.mo_votes == 1 ? '' : 's'}</div>
+        <div><b>${acts.filter((a) => !a.under_review).length}</b>activit${acts.length == 1 ? 'y' : 'ies'}</div>
+      </div>
+      <div class="road prof-road" aria-label="${fmt(km)} of ${GOAL} km"><i style="width:${(100 * km) / scale}%"></i><s style="left:${(100 * GOAL) / scale}%"></s></div>
+      <p class="small muted" style="margin-top:8px">${km >= GOAL ? `Past the ${GOAL} km floor. Every kilometre from here is extra.` : `${fmt(GOAL - km)} km to go to ${GOAL}.`}</p>` : ''}
+
+      ${mos.length ? `<h3 style="margin-top:40px">Mustache progress</h3>
+      <div class="mos small-mos">${mos.map((p) => `<figure class="mo" style="margin:0"><img src="${esc(photoUrl(p.storage_path))}" alt="${esc(name)}, ${esc(CONFIG.WEEKS.find((w) => w.n === p.week)?.label || '')}" loading="lazy">
+        <figcaption class="cap"><b>${esc(CONFIG.WEEKS.find((w) => w.n === p.week)?.label || '')}</b>${p.week > 0 ? `, ${p.votes} vote${p.votes == 1 ? '' : 's'}` : ''}</figcaption></figure>`).join('')}</div>` : ''}
+
+      ${prof.is_participant ? `<h3 style="margin-top:40px">Activity</h3>
+      <ul class="log">${acts.length ? acts.map((a) => {
+        const K = KINDS[a.kind];
+        return `<li><div class="km">${fmt(a.distance_km)}<small>km</small></div>
+          <div class="what"><div><b>${esc(K.label)}</b>, ${prettyDate(a.activity_date)}, ${duration(a.duration_min)} (${pace(a.duration_min, a.distance_km)})${a.under_review ? ' <span class="tag review">Being checked</span>' : ''}</div>
+            ${a.note ? `<div>${esc(a.note)}</div>` : ''}
+            <div class="links">${a.proof_url ? `<a href="${esc(a.proof_url)}" target="_blank" rel="noopener nofollow">${/strava/i.test(a.proof_url) ? 'Strava activity' : 'Proof link'}</a>` : ''}${a.proof_path ? `<a href="${esc(photoUrl(a.proof_path, 'proof'))}" target="_blank" rel="noopener">Screenshot</a>` : ''}</div></div>
+          <div></div></li>`;
+      }).join('') : `<li class="blank" style="display:block">${mine ? 'Nothing logged yet. <a href="#/log">Log your first kilometres</a>.' : 'Nothing logged yet.'}</li>`}</ul>` : ''}
+    </section>`;
+}
+
+// ---------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------
 const ROUTES = { '': pageHome, log: pageLog, mo: pageMo, feed: pageFeed, rules: pageRules, join: pageJoin, me: pageMe, review: pageReview };
@@ -816,9 +919,10 @@ async function route() {
     await new Promise((r) => setTimeout(r, 300));
     history.replaceState(null, '', location.pathname + '#/join');
   }
-  const name = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
-  const fn = ROUTES[name] || pageHome;
-  renderChrome(ROUTES[name] ? name : '');
+  const parts = location.hash.replace(/^#\/?/, '').split(/[/?]/);
+  const name = parts[0];
+  const fn = name === 'p' && parts[1] ? () => pageProfile(decodeURIComponent(parts[1])) : (ROUTES[name] || pageHome);
+  renderChrome(ROUTES[name] ? name : name === 'p' ? 'p' : '');
   try {
     if (name === 'join' && S.session && !S.profile) {
       $app.innerHTML = `<div class="sheet">${profileForm(true)}</div>`;

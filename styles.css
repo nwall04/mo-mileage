@@ -238,3 +238,31 @@ table.mult td:last-child { text-align: right; font: 800 22px var(--display); }
 #toast.err { background: var(--alert); }
 .foot { padding: 28px 20px 36px; font-size: 15px; color: var(--muted); border-top: 3px solid var(--ink); margin-top: 24px; }
 .loading { padding: 60px 0; color: var(--muted); font-weight: 700; }
+
+/* ---------- profiles ---------- */
+a.nm { display: block; text-decoration: none; }
+a.nm:hover { text-decoration: underline; }
+.who-link { font-weight: 700; text-decoration: none; }
+.who-link:hover { text-decoration: underline; }
+textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
+.face.lg { width: 84px; height: 84px; font-size: 32px; flex: 0 0 84px; }
+.face.xl { width: 168px; height: 168px; font-size: 64px; border-width: 4px; flex: 0 0 168px; }
+.avatar-edit { display: flex; gap: 18px; align-items: center; margin-top: 8px; }
+.prof-head { display: flex; gap: 32px; align-items: center; padding: 8px 0 28px; }
+.prof-id { min-width: 0; }
+.prof-id h2 { margin-bottom: .15em; }
+.prof-id .meta { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); align-items: center; }
+.prof-id .bio { font-size: 19px; margin: 14px 0 0; max-width: 52ch; }
+.prof-id .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.prof-stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 3px solid var(--ink); border-bottom: 1px solid var(--pavement-dark); }
+.prof-stats div { padding: 14px 12px 14px 0; font-size: 15px; color: var(--muted); line-height: 1.2; }
+.prof-stats b { display: block; font: 900 44px/1 var(--display); color: var(--ink); margin-bottom: 4px; }
+.prof-road { max-width: none; margin-top: 18px; height: 12px; }
+.prof-road s { top: -6px; height: 24px; width: 5px; }
+.small-mos { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+@media (max-width: 620px) {
+  .prof-head { flex-direction: column; align-items: flex-start; gap: 18px; }
+  .face.xl { width: 120px; height: 120px; flex-basis: 120px; font-size: 46px; }
+  .prof-stats { grid-template-columns: 1fr 1fr; }
+  .small-mos { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+}
