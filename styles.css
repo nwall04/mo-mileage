@@ -300,3 +300,11 @@ textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
 
 /* Organizer announcement: quiet, one line, so frequent thank-yous do not shout */
 .announce { font-size: 15px; color: var(--ink-2); border-left: 4px solid var(--hivis); background: rgba(255,255,255,.45); padding: 8px 12px; margin: 0 0 8px; border-radius: 0 4px 4px 0; }
+
+/* Fundraiser bar: bigger; the organizer note sits quietly underneath it */
+.raised { margin-top: 30px; max-width: 480px; }
+.raised-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.raised-top b { font-size: 52px; line-height: 1; }
+.raised-top span { color: var(--muted); }
+.raised .meter { height: 20px; margin-top: 10px; border-radius: 3px; }
+.start-copy .raised-note { font-size: 14px; color: var(--muted); margin: 8px 0 0; }

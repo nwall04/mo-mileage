@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=202610272112';
+import { CONFIG } from './config.js?v=202610272115';
 
 // ---------------------------------------------------------------------
 // Setup
@@ -294,12 +294,12 @@ async function pageHome() {
           <a class="btn line" href="${esc(CONFIG.DONATE_URL)}" target="_blank" rel="noopener">Donate to the team</a>
         </div>
         <div class="raised">
-          <div><b class="fig" style="font-size:30px">${money(settings.raised_amount)}</b> <span class="muted">raised of ${money(settings.goal_amount)}</span></div>
-          <div class="meter"><i style="width:${pct}%"></i></div>
+          <div class="raised-top"><b class="fig">${money(settings.raised_amount)}</b><span>raised for Movember of ${money(settings.goal_amount)}</span></div>
+          <div class="meter" role="img" aria-label="${Math.round(pct)}% of the fundraising goal"><i style="width:${pct}%"></i></div>
+          ${settings.announcement ? `<p class="raised-note">${esc(settings.announcement)}</p>` : ''}
         </div>
       </div>
     </section>
-    ${settings.announcement ? `<p class="announce">${esc(settings.announcement)}</p>` : ''}
     <section class="block">
       <div class="head">
         <h2>Standings</h2>
