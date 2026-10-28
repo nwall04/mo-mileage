@@ -308,3 +308,9 @@ textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
 .raised-top span { color: var(--muted); }
 .raised .meter { height: 20px; margin-top: 10px; border-radius: 3px; }
 .start-copy .raised-note { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+
+/* Tally marks for active days */
+.tally { stroke: currentColor; stroke-width: 2; stroke-linecap: round; fill: none; vertical-align: middle; color: var(--ink-2); }
+.standings li.me .tally { color: var(--ink); }
+.tally-big { display: flex !important; align-items: center; min-height: 44px; }
+.tally-big .tally { height: 36px; width: auto; color: var(--ink); }

@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=202610272115';
+import { CONFIG } from './config.js?v=202610272116';
 
 // ---------------------------------------------------------------------
 // Setup
@@ -167,6 +167,20 @@ const face = (row) => row.photo_path
   ? thumbImg(row.photo_path, 'mo-photos', 'class="face" alt="" loading="lazy"')
   : `<div class="face" aria-hidden="true">${esc(initials(row.display_name))}</div>`;
 const loading = () => '<p class="loading">Loading…</p>';
+// Tally marks for days with activity: groups of four bars struck through by a fifth.
+// Shows nothing at zero, so nobody gets a "0" next to their name.
+function tally(n, h = 14) {
+  n = Math.min(Number(n) || 0, 30);
+  if (!n) return '';
+  const groups = Math.ceil(n / 5), gw = 22;
+  let d = '';
+  for (let g = 0; g < groups; g++) {
+    const inGroup = Math.min(5, n - g * 5), x0 = g * gw + 2;
+    for (let b = 0; b < Math.min(4, inGroup); b++) d += `M${x0 + b * 4} 1V${h - 1}`;
+    if (inGroup === 5) d += `M${x0 - 2} ${h - 3}L${x0 + 14} 3`;
+  }
+  return `<svg class="tally" width="${groups * gw - 4}" height="${h}" viewBox="0 0 ${groups * gw - 4} ${h}" role="img" aria-label="${n} day${n == 1 ? '' : 's'} with activity"><title>${n} day${n == 1 ? '' : 's'} with activity</title><path d="${d}"/></svg>`;
+}
 
 // ---------------------------------------------------------------------
 // Demo data, shown until Supabase is connected
@@ -328,7 +342,7 @@ async function pageHome() {
         <div class="pos">${r._pos}</div>${face(r)}
         <div class="who"><a class="nm" href="#/p/${esc(r.user_id)}">${esc(r.display_name)}</a>
           <div class="meta">${r.hometown ? `<span>${esc(r.hometown)}</span>` : ''}
-            ${boardTab === 'combo' && r.active_days != null ? `<span>${r.active_days} day${r.active_days == 1 ? '' : 's'} moved</span>` : ''}
+            ${boardTab === 'combo' ? tally(r.active_days) : ''}
             ${km >= 200 ? '<span class="tag done">200 club</span>' : km >= 100 ? '<span class="tag done">100 club</span>' : km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
             ${r.mo_space_url ? `<a href="${esc(r.mo_space_url)}" target="_blank" rel="noopener">Sponsor ${esc(first(r.display_name))}</a>` : ''}</div>
           ${boardTab !== 'mo' ? `<div class="road" aria-label="${fmt(km)} of ${GOAL} km"><i style="width:${(100 * km) / scale}%"></i><s style="left:${(100 * GOAL) / scale}%"></s></div>` : ''}</div>
@@ -944,7 +958,7 @@ async function pageProfile(id) {
         <div><b>${fmt(km)}</b>counted km</div>
         <div><b>${kmRank ? `#${kmRank}` : '–'}</b>of ${lb.length} on kilometres</div>
         <div><b>${row.mo_votes}</b>mustache vote${row.mo_votes == 1 ? '' : 's'}</div>
-        <div><b>${row.active_days ?? acts.filter((a) => !a.under_review && !a.practice).length}</b>days moved</div>
+        <div>${row.active_days ? `<b class="tally-big">${tally(row.active_days)}</b>days with activity` : '<b>Day 1</b>coming up'}</div>
       </div>
       <div class="road prof-road" aria-label="${fmt(km)} of ${GOAL} km"><i style="width:${(100 * km) / scale}%"></i><s style="left:${(100 * GOAL) / scale}%"></s></div>
       <p class="small muted" style="margin-top:8px">${km >= GOAL ? `Past the ${GOAL} km floor. Every kilometre from here is extra.` : `${fmt(GOAL - km)} km to go to ${GOAL}.`}</p>` : ''}
