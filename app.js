@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=202610272038';
+import { CONFIG } from './config.js?v=202610272107';
 
 // ---------------------------------------------------------------------
 // Setup
@@ -179,7 +179,8 @@ const DEMO = (() => {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#e4e6e1"/><circle cx="100" cy="96" r="62" fill="#e9cdb4"/><circle cx="78" cy="82" r="6" fill="#000"/><circle cx="122" cy="82" r="6" fill="#000"/><path d="M44 116c14 ${8 + n} 36 6 50-6 4 3 8 3 12 0 14 12 36 ${14 + n} 50 6-6 18-30 26-52 12-4-2-8-2-12 0-22 14-46 6-48-12z" fill="${tones[i]}"/><text x="100" y="190" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#474c52">sample</text></svg>`);
   const lb = rows.map(([n, h, km, v, chk], i) => ({ user_id: 'd' + i, display_name: n, hometown: h, km_points: km, raw_km: km, mo_votes: v, strava_checked: chk, photo_path: moSvg(i, v), mo_space_url: CONFIG.MOVEMBER_TEAM_URL, is_participant: true }));
   const maxK = Math.max(...lb.map((r) => r.km_points)), maxV = Math.max(...lb.map((r) => r.mo_votes));
-  lb.forEach((r) => (r.moathlete_score = Math.round((50 * r.km_points / maxK + 50 * r.mo_votes / maxV) * 10) / 10));
+  const days = [18, 26, 30, 14, 22, 9, 30, 6];
+  lb.forEach((r, i) => { r.active_days = days[i]; r.moathlete_score = Math.round((40 * Math.sqrt(r.km_points / maxK) + 30 * days[i] / 30 + 30 * r.mo_votes / maxV) * 10) / 10; });
   const kinds = ['run', 'walk', 'cycle', 'hike', 'run', 'swim', 'walk', 'run'];
   const feed = lb.map((r, i) => ({ id: i, user_id: r.user_id, display_name: r.display_name, kind: kinds[i], distance_km: [10, 6.2, 32, 8, 5, 1.5, 4, 12][i],
     duration_min: [52, 70, 85, 110, 27, 38, 45, 64][i], points: [10, 6.2, 10.6, 8, 5, 6, 4, 12][i], activity_date: '2026-11-0' + (i % 7 + 1),
@@ -298,7 +299,7 @@ async function pageHome() {
         </div>
       </div>
     </section>
-    ${settings.announcement ? `<p class="notice">${esc(settings.announcement)}</p>` : ''}
+    ${settings.announcement ? `<p class="announce">${esc(settings.announcement)}</p>` : ''}
     <section class="block">
       <div class="head">
         <h2>Standings</h2>
@@ -327,13 +328,14 @@ async function pageHome() {
         <div class="pos">${r._pos}</div>${face(r)}
         <div class="who"><a class="nm" href="#/p/${esc(r.user_id)}">${esc(r.display_name)}</a>
           <div class="meta">${r.hometown ? `<span>${esc(r.hometown)}</span>` : ''}
+            ${boardTab === 'combo' && r.active_days != null ? `<span>${r.active_days} day${r.active_days == 1 ? '' : 's'} moved</span>` : ''}
             ${km >= 200 ? '<span class="tag done">200 club</span>' : km >= 100 ? '<span class="tag done">100 club</span>' : km >= GOAL ? '<span class="tag done">60 done</span>' : ''}
             ${r.mo_space_url ? `<a href="${esc(r.mo_space_url)}" target="_blank" rel="noopener">Sponsor ${esc(first(r.display_name))}</a>` : ''}</div>
           ${boardTab !== 'mo' ? `<div class="road" aria-label="${fmt(km)} of ${GOAL} km"><i style="width:${(100 * km) / scale}%"></i><s style="left:${(100 * GOAL) / scale}%"></s></div>` : ''}</div>
         <div class="val"><b>${esc(v)}</b><span>${unit}</span></div></li>`;
     }).join('') : `<li class="blank" style="display:block">${lb.length ? 'Nobody by that name yet.' : 'Nobody has signed up yet. The first name on the board could be yours.'}</li>`;
     document.getElementById('board-note').textContent = {
-      combo: 'Overall: up to 50 points for kilometres and up to 50 for mustache votes, each measured against the current leader. You need both to win it.',
+      combo: 'Overall, out of 100: distance up to 40 (more km always helps, but the gains taper), consistency up to 30 (days you moved, out of 30), mustache votes up to 30.',
       km: `Kilometres with activity multipliers. The blue mark on each line is ${GOAL} km.`,
       mo: 'Votes received across the four weekly mustache rounds.',
     }[boardTab];
@@ -702,10 +704,7 @@ function pageRules() {
   $app.innerHTML = `
     <section class="block">
       <h2>Rules</h2>
-      <p style="font-size:20px">November in Canada is dark at five and cold the rest of the time. This is a reason to get outside anyway, check in on each other, and raise money for men's mental health while doing it.</p>
-
-      <h3 style="margin-top:40px">How to join</h3>
-      <p>Fundraising is encouraged, never required. If you only want to move, grow a mustache and compete, skip straight to step 3. You are on the standings either way.</p>
+      <p>Fundraising is optional. Not fundraising? Skip to step 3.</p>
       ${joinSteps()}
 
       <dl class="rulelist">
@@ -716,7 +715,8 @@ function pageRules() {
         <div><dt>Mustache</dt><dd>
           <p>Start clean-shaven with a Shave-Down photo, then post one photo a week. Every signed-in person gets 3 votes a round and cannot vote for themselves. Cannot grow one? Draw it on. Commit to the bit.</p></dd></div>
         <div><dt>Scoreboards</dt><dd>
-          <p><b>Kilometres:</b> total counted km. <b>Mustache:</b> total votes across the four weekly rounds. <b>Overall:</b> up to 50 points for each, measured against the leader of each board. You need both to win it.</p></dd></div>
+          <p><b>Kilometres:</b> every counted km, no cap. <b>Mustache:</b> total votes across the four weekly rounds.</p>
+          <p><b>Overall, out of 100:</b> distance up to 40, consistency up to 30, mustache votes up to 30. Distance uses the square root of your km against the leader's, so running four times as far earns twice the points: big distances win big, but nobody laps the field. Consistency is the number of days you logged anything, out of 30. A 3 km walk counts as a day.</p></dd></div>
         <div><dt>Keeping it honest</dt><dd>
           <p>Every entry needs a proof photo: a screenshot from any app, a photo of your watch, or a photo of the treadmill screen. A Strava link works too. No Strava needed. Each photo and link can only be used once. The organizer looks over every entry and removes anything that does not add up. Entries faster than a believable pace, or questioned by three people, pause until the organizer checks them.</p>
           <p class="small muted">Max ${KINDS.run.cap} km per entry (${KINDS.cycle.cap} on a bike, ${KINDS.swim.cap} in the pool). Logging closes December 2. Questions go to ${esc(CONFIG.ORGANIZER_NAME)}${CONFIG.ORGANIZER_EMAIL ? ` at <a href="mailto:${esc(CONFIG.ORGANIZER_EMAIL)}">${esc(CONFIG.ORGANIZER_EMAIL)}</a>` : ''}.</p></dd></div>
@@ -806,6 +806,7 @@ function profileForm(isNew) {
       <label for="ps">Strava profile <span class="opt">(optional)</span></label>
       <input id="ps" type="url" value="${esc(p.strava_url || '')}" placeholder="https://www.strava.com/athletes/…">
       <label class="check" style="margin-top:20px"><input type="checkbox" id="pp" ${p.is_participant ? 'checked' : ''}> I am competing. Leave this unticked if you are only here to vote and cheer.</label>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="pe" ${p.email_ok !== false ? 'checked' : ''}> Email me occasional challenge reminders. A few through the month, nothing else.</label>
       <button class="btn primary block" style="margin-top:20px">${isNew ? 'Finish signing up' : 'Save profile'}</button>
     </form>`;
 }
@@ -827,6 +828,7 @@ function bindProfile(isNew) {
       mo_space_url: document.getElementById('pm').value.trim() || null,
       strava_url: document.getElementById('ps').value.trim() || null,
       is_participant: document.getElementById('pp').checked,
+      email_ok: document.getElementById('pe').checked,
       bio: document.getElementById('pb').value.trim() || null,
     };
     const btn = e.submitter; if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -860,11 +862,24 @@ async function pageMe() {
         <div><label for="ag">Goal ($)</label><input id="ag" type="number" step="1" min="0" value="${esc(s.goal_amount)}"></div></div>
         <label for="an">Announcement <span class="opt">(leave blank to hide)</span></label>
         <input id="an" maxlength="200" value="${esc(s.announcement || '')}">
-        <button class="btn block" style="margin-top:18px">Update site</button></form>` : ''}
+        <button class="btn block" style="margin-top:18px">Update site</button>
+        <h3 style="margin-top:28px">Reminder emails</h3>
+        <p class="small muted">Copies the addresses of everyone who has not opted out. Paste them into the Bcc field of a Gmail message.</p>
+        <button type="button" class="btn line block" id="copy-emails">Copy email list</button>
+        <p class="small" id="email-count" style="margin-top:8px"></p></form>` : ''}
       <button class="btn line" id="signout" style="margin-top:22px">Sign out</button>
     </div>`;
   bindProfile(false);
   document.getElementById('signout').addEventListener('click', async () => { await sb.auth.signOut(); await loadUser(); location.hash = '#/'; });
+  document.getElementById('copy-emails')?.addEventListener('click', async () => {
+    try {
+      const rows = await q(sb.from('reminder_emails').select('email'));
+      const list = rows.map((r) => r.email).join(', ');
+      try { await navigator.clipboard.writeText(list); toast(`Copied ${rows.length} addresses.`); }
+      catch { prompt('Copy these addresses:', list); }
+      document.getElementById('email-count').textContent = `${rows.length} people on the list.`;
+    } catch (err) { toast(friendlyError(err), true); }
+  });
   document.getElementById('admin-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -927,7 +942,7 @@ async function pageProfile(id) {
         <div><b>${fmt(km)}</b>counted km</div>
         <div><b>${kmRank ? `#${kmRank}` : '–'}</b>of ${lb.length} on kilometres</div>
         <div><b>${row.mo_votes}</b>mustache vote${row.mo_votes == 1 ? '' : 's'}</div>
-        <div><b>${acts.filter((a) => !a.under_review).length}</b>activit${acts.length == 1 ? 'y' : 'ies'}</div>
+        <div><b>${row.active_days ?? acts.filter((a) => !a.under_review && !a.practice).length}</b>days moved</div>
       </div>
       <div class="road prof-road" aria-label="${fmt(km)} of ${GOAL} km"><i style="width:${(100 * km) / scale}%"></i><s style="left:${(100 * GOAL) / scale}%"></s></div>
       <p class="small muted" style="margin-top:8px">${km >= GOAL ? `Past the ${GOAL} km floor. Every kilometre from here is extra.` : `${fmt(GOAL - km)} km to go to ${GOAL}.`}</p>` : ''}

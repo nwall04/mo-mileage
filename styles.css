@@ -297,3 +297,6 @@ textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
   .desk-only { display: none !important; }
 }
 @media (max-width: 360px) { .logo { font-size: 20px; } .top .btn.sm { padding: 5px 7px; font-size: 13px; } }
+
+/* Organizer announcement: quiet, one line, so frequent thank-yous do not shout */
+.announce { font-size: 15px; color: var(--ink-2); border-left: 4px solid var(--hivis); background: rgba(255,255,255,.45); padding: 8px 12px; margin: 0 0 8px; border-radius: 0 4px 4px 0; }
