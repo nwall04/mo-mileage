@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=202610272116';
+import { CONFIG } from './config.js?v=202610272128';
 
 // ---------------------------------------------------------------------
 // Setup
@@ -708,9 +708,9 @@ function joinSteps(onJoinPage = false) {
         <p>Once you are in, open your Mo Space on movember.com and copy the web address from the address bar. It starts with https://ca.movember.com/ or https://movember.com/.</p></div></li>
       <li><span class="n">3</span><div><h3>Sign up here</h3>
         <p>Enter your email and pick your name for the standings. If you did steps 1 and 2, paste your Mo Space link and your name becomes a sponsor button.</p>
-        ${S.session && S.profile ? '' : onJoinPage
-          ? '<button class="btn" type="button" id="to-email">Enter my email</button>'
-          : '<a class="btn" href="#/join">Sign up on this site</a>'}</div></li>
+        ${onJoinPage
+          ? (S.session && S.profile ? '' : '<button class="btn" type="button" id="to-email">Enter my email</button>')
+          : `<a class="btn" href="#/join">Sign up with your email</a>${S.session && S.profile ? '<p class="small muted" style="margin-top:8px">You are already signed up.</p>' : ''}`}</div></li>
     </ol>`;
 }
 
