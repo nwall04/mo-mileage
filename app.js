@@ -288,6 +288,7 @@ async function pageHome() {
         <p>Movember asks for 60 km in November, one for each of the 60 men the world loses to suicide every hour. Sixty is where you start counting, not where you stop. We are doing it with mustaches, a scoreboard and a lot of cold mornings.</p>
         <div class="actions">
           ${signedIn ? '<a class="btn primary" href="#/log">Log your km</a>' : '<a class="btn primary" href="#/join">Sign up</a>'}
+          <a class="btn hivis-btn" href="#/rules">Read the rules</a>
           <a class="btn line" href="${esc(CONFIG.DONATE_URL)}" target="_blank" rel="noopener">Donate to the team</a>
         </div>
         <div class="raised">

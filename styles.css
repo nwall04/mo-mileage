@@ -58,7 +58,7 @@ h3 { font-size: 28px; }
   position: fixed; inset: auto 0 0 0; z-index: 30; display: none;
   background: var(--ink); padding: 0 0 env(safe-area-inset-bottom);
 }
-.tabbar a { flex: 1; text-align: center; text-decoration: none; color: #fff; font-weight: 700; font-size: 14px; padding: 18px 2px 16px; border-top: 4px solid transparent; }
+.tabbar a { flex: 1; text-align: center; text-decoration: none; color: #fff; font-weight: 700; font-size: 13px; padding: 18px 1px 16px; white-space: nowrap; border-top: 4px solid transparent; }
 .tabbar a.active { border-top-color: var(--hivis); color: var(--hivis); }
 @media (max-width: 760px) { .tabbar { display: flex; } }
 
@@ -282,3 +282,6 @@ textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
 .proof-thumb.none { font-size: 13px; font-weight: 700; color: var(--muted); border: 2px dashed var(--pavement-dark); }
 .log.review .side { flex-direction: row; }
 @media (max-width: 560px) { .log.review li { grid-template-columns: 64px minmax(0, 1fr); } .proof-thumb { width: 64px; height: 64px; } }
+
+.btn.hivis-btn { background: var(--hivis); border-color: var(--ink); color: var(--ink); }
+.btn.hivis-btn:hover { background: #dbe42f; }
