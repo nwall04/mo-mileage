@@ -233,9 +233,10 @@ async function loadUser() {
 function renderChrome(route) {
   document.querySelectorAll('[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === route));
   const act = document.getElementById('top-actions');
+  const rulesBtn = `<a class="btn sm rules-btn${route === 'rules' ? ' on' : ''}" href="#/rules">Rules</a>`;
   act.innerHTML = S.session && S.profile
-    ? `${S.isAdmin ? '<a class="btn sm line" href="#/review">Review</a>' : ''}<a class="btn sm hivis" href="#/log">Log km</a><a class="btn sm line" href="#/me">${esc(first(S.profile.display_name))}</a>`
-    : `<a class="btn sm line" href="#/signin">Sign in</a><a class="btn sm hivis" href="#/join">Join</a>`;
+    ? `${rulesBtn}${S.isAdmin ? '<a class="btn sm line" href="#/review">Review</a>' : ''}<a class="btn sm hivis desk-only" href="#/log">Log km</a><a class="btn sm line" href="#/me">${esc(first(S.profile.display_name))}</a>`
+    : `${rulesBtn}<a class="btn sm line" href="#/signin">Sign in</a><a class="btn sm hivis" href="#/join">Join</a>`;
   const meTab = document.querySelector('.tabbar [data-route="me"]');
   if (meTab) {
     const signedIn = !!(S.session && S.profile);
