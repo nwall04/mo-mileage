@@ -115,7 +115,7 @@ function loadImage(file) {
     img.src = url;
   });
 }
-async function compress(file, max = 1600, square = false) {
+async function compress(file, max = 1600, square = false, quality = 0.82) {
   const { img, url } = await loadImage(file);
   const c = document.createElement('canvas');
   if (square) {
@@ -130,23 +130,41 @@ async function compress(file, max = 1600, square = false) {
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   }
   URL.revokeObjectURL(url);
-  return await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+  return await new Promise((res) => c.toBlob(res, 'image/jpeg', quality));
 }
 // Fingerprint of the original file, so the same screenshot cannot be reused.
 async function sha256(file) {
   const buf = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
-async function uploadImage(bucket, file, max = 1600, square = false) {
-  const blob = await compress(file, max, square);
+// Upload sizes are tuned for the free Supabase plan (1 GB storage, 5 GB/month bandwidth).
+// Each upload also stores a small thumbnail ("-t.jpg"); lists and standings load only thumbnails.
+const SIZES = {
+  proof:  { max: 1000, square: false, quality: 0.7,  thumb: 240 },
+  mo:     { max: 1200, square: false, quality: 0.8,  thumb: 420 },
+  avatar: { max: 400,  square: true,  quality: 0.8,  thumb: 120 },
+};
+const thumbPath = (path) => path.replace(/\.jpg$/, '-t.jpg');
+async function uploadImage(bucket, file, kind) {
+  const z = SIZES[kind];
+  const [full, small] = await Promise.all([compress(file, z.max, z.square, z.quality), compress(file, z.thumb, z.square, 0.72)]);
   const path = `${S.session.user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-  const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  const opts = { contentType: 'image/jpeg', upsert: false, cacheControl: '31536000' }; // file names never change, so browsers can cache for a year
+  const { error } = await sb.storage.from(bucket).upload(path, full, opts);
   if (error) throw error;
+  await sb.storage.from(bucket).upload(thumbPath(path), small, opts); // best effort; pages fall back to the full image
   return path;
+}
+const removeImage = (bucket, path) => path && sb.storage.from(bucket).remove([path, thumbPath(path)]);
+// <img> that loads the thumbnail, falling back to the full image (older uploads have no thumbnail).
+function thumbImg(path, bucket, attrs) {
+  const full = photoUrl(path, bucket);
+  const small = /^data:|^https?:/.test(path) || !sb ? full : photoUrl(thumbPath(path), bucket);
+  return `<img src="${esc(small)}" data-full="${esc(full)}" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full}" ${attrs}>`;
 }
 
 const face = (row) => row.photo_path
-  ? `<img class="face" src="${esc(photoUrl(row.photo_path))}" alt="" loading="lazy">`
+  ? thumbImg(row.photo_path, 'mo-photos', 'class="face" alt="" loading="lazy"')
   : `<div class="face" aria-hidden="true">${esc(initials(row.display_name))}</div>`;
 const loading = () => '<p class="loading">Loading…</p>';
 
@@ -438,7 +456,7 @@ async function pageLog() {
       btn.disabled = true; btn.textContent = file ? 'Uploading photo…' : 'Saving…';
       try {
         let proof_path = null, proof_hash = null;
-        if (file) { proof_hash = await sha256(file); proof_path = await uploadImage('proof', file); }
+        if (file) { proof_hash = await sha256(file); proof_path = await uploadImage('proof', file, 'proof'); }
         const [row] = await q(sb.from('activities').insert({ kind, activity_date: form.date.value, distance_km: km, duration_min: min,
           proof_url: proof || null, proof_path, proof_hash, note: form.note.value.trim() || null }).select());
         toast(form.date.value < '2026-11-01' ? 'Practice entry saved. It works. It will not count.'
@@ -496,7 +514,7 @@ async function pageMo() {
           <button class="btn primary block" style="margin-top:12px" id="mo-btn">Post photo</button></form>` : ''}
         ${sorted.map((p) => {
           const own = p.user_id === uid, voted = myVoteIds.has(p.id);
-          return `<figure class="mo" style="margin:0"><img src="${esc(photoUrl(p.storage_path))}" alt="${esc(p.display_name)}'s mustache" loading="lazy">
+          return `<figure class="mo" style="margin:0"><a href="${esc(photoUrl(p.storage_path))}" target="_blank" rel="noopener">${thumbImg(p.storage_path, 'mo-photos', `alt="${esc(p.display_name)}'s mustache" loading="lazy"`)}</a>
             <div class="row"><div><a class="nm" href="#/p/${esc(p.user_id)}">${esc(p.display_name)}</a>${moWeek > 0 ? `<div class="small muted">${p.votes} vote${p.votes == 1 ? '' : 's'}</div>` : ''}</div>
               ${own ? `<button class="btn sm line" data-delphoto="${p.id}" data-path="${esc(p.storage_path)}">Delete</button>`
                 : canVote ? `<button class="btn sm vote${voted ? ' on' : ''}" data-vote="${p.id}" ${!voted && used >= 3 ? 'disabled' : ''} aria-pressed="${voted}">${voted ? 'Voted' : 'Vote'}</button>` : ''}
@@ -522,7 +540,7 @@ async function pageMo() {
       const btn = document.getElementById('mo-btn');
       btn.disabled = true; btn.textContent = 'Posting…';
       try {
-        const path = await uploadImage('mo-photos', file.files[0]);
+        const path = await uploadImage('mo-photos', file.files[0], 'mo');
         await q(sb.from('mo_photos').insert({ storage_path: path, caption: document.getElementById('mo-cap').value.trim() || null }));
         toast('Photo posted.');
         pageMo();
@@ -542,7 +560,7 @@ async function pageMo() {
     if (!confirm('Delete your photo? Its votes are lost.')) return;
     try {
       await q(sb.from('mo_photos').delete().eq('id', b.dataset.delphoto));
-      await sb.storage.from('mo-photos').remove([b.dataset.path]);
+      await removeImage('mo-photos', b.dataset.path);
       toast('Photo deleted.'); pageMo();
     } catch (err) { toast(friendlyError(err), true); }
   }));
@@ -623,7 +641,7 @@ async function pageReview() {
   const paused = queue.filter((a) => a.under_review);
   const fresh = queue.filter((a) => !a.under_review);
   const item = (a) => `<li>
-    ${a.proof_path ? `<a href="${esc(photoUrl(a.proof_path, 'proof'))}" target="_blank" rel="noopener" title="Open full size"><img class="proof-thumb" src="${esc(photoUrl(a.proof_path, 'proof'))}" alt="Proof photo" loading="lazy"></a>`
+    ${a.proof_path ? `<a href="${esc(photoUrl(a.proof_path, 'proof'))}" target="_blank" rel="noopener" title="Open full size">${thumbImg(a.proof_path, 'proof', 'class="proof-thumb" alt="Proof photo" loading="lazy"')}</a>`
       : `<div class="proof-thumb none">Link</div>`}
     <div class="what"><div><b>${esc(a.display_name)}</b> ${esc(KINDS[a.kind].verb)} <b>${fmt(a.distance_km)} km</b> in ${duration(a.duration_min)} (${pace(a.duration_min, a.distance_km)})${a.practice ? ' <span class="tag">Practice</span>' : ''}</div>
       <div class="small muted">${prettyDate(a.activity_date)}${a.note ? `. ${esc(a.note)}` : ''}</div>
@@ -770,7 +788,7 @@ function profileForm(isNew) {
     <form class="panel" id="profile-form">
       <h3>${isNew ? 'Last step: your name on the board' : 'Your profile'}</h3>
       <div class="avatar-edit">
-        ${p.avatar_path ? `<img class="face lg" id="av-prev" src="${esc(photoUrl(p.avatar_path))}" alt="">` : `<div class="face lg" id="av-prev">${esc(initials(p.display_name || '?'))}</div>`}
+        ${p.avatar_path ? `${thumbImg(p.avatar_path, 'mo-photos', 'class="face lg" id="av-prev" alt=""')}` : `<div class="face lg" id="av-prev">${esc(initials(p.display_name || '?'))}</div>`}
         <div><label for="pa" style="margin-top:0">Profile photo <span class="opt">(optional)</span></label>
           <input id="pa" type="file" accept="image/*"><div class="hint">Cropped to a circle. Shows on the standings and your page.</div></div>
       </div>
@@ -812,9 +830,9 @@ function bindProfile(isNew) {
     const btn = e.submitter; if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     try {
       const old = S.profile?.avatar_path;
-      if (av.files[0]) row.avatar_path = await uploadImage('mo-photos', av.files[0], 600, true);
+      if (av.files[0]) row.avatar_path = await uploadImage('mo-photos', av.files[0], 'avatar');
       await q(sb.from('profiles').upsert(row));
-      if (row.avatar_path && old) sb.storage.from('mo-photos').remove([old]);
+      if (row.avatar_path && old) removeImage('mo-photos', old);
       await loadUser();
       toast(isNew ? 'You are signed up.' : 'Profile saved.');
       location.hash = isNew ? '#/rules' : '#/me';
@@ -913,7 +931,7 @@ async function pageProfile(id) {
       <p class="small muted" style="margin-top:8px">${km >= GOAL ? `Past the ${GOAL} km floor. Every kilometre from here is extra.` : `${fmt(GOAL - km)} km to go to ${GOAL}.`}</p>` : ''}
 
       ${mos.length ? `<h3 style="margin-top:40px">Mustache progress</h3>
-      <div class="mos small-mos">${mos.map((p) => `<figure class="mo" style="margin:0"><img src="${esc(photoUrl(p.storage_path))}" alt="${esc(name)}, ${esc(CONFIG.WEEKS.find((w) => w.n === p.week)?.label || '')}" loading="lazy">
+      <div class="mos small-mos">${mos.map((p) => `<figure class="mo" style="margin:0"><a href="${esc(photoUrl(p.storage_path))}" target="_blank" rel="noopener">${thumbImg(p.storage_path, 'mo-photos', `alt="${esc(name)}, ${esc(CONFIG.WEEKS.find((w) => w.n === p.week)?.label || '')}" loading="lazy"`)}</a>
         <figcaption class="cap"><b>${esc(CONFIG.WEEKS.find((w) => w.n === p.week)?.label || '')}</b>${p.week > 0 ? `, ${p.votes} vote${p.votes == 1 ? '' : 's'}` : ''}</figcaption></figure>`).join('')}</div>` : ''}
 
       ${prof.is_participant ? `<h3 style="margin-top:40px">Activity</h3>
