@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=202610272107';
+import { CONFIG } from './config.js?v=202610272112';
 
 // ---------------------------------------------------------------------
 // Setup
@@ -287,7 +287,7 @@ async function pageHome() {
         </div>
       </div>
       <div class="start-copy">
-        <p>Movember asks for 60 km in November, one for each of the 60 men the world loses to suicide every hour. Sixty is where you start counting, not where you stop. We are doing it with mustaches, a scoreboard and a lot of cold mornings.</p>
+        <p>Movember asks for 60 km in November, one for each of the 60 men the world loses to suicide every hour. We are not stopping there.</p>
         <div class="actions">
           ${signedIn ? '<a class="btn primary" href="#/log">Log your km</a>' : '<a class="btn primary" href="#/join">Sign up</a>'}
           <a class="btn hivis-btn" href="#/rules">Read the rules</a>
@@ -704,8 +704,6 @@ function pageRules() {
   $app.innerHTML = `
     <section class="block">
       <h2>Rules</h2>
-      <p>Fundraising is optional. Not fundraising? Skip to step 3.</p>
-      ${joinSteps()}
 
       <dl class="rulelist">
         <div><dt>Move</dt><dd>
@@ -723,6 +721,10 @@ function pageRules() {
         <div><dt>Look after each other</dt><dd>
           <p>Use the month as an excuse to check in on your people, and ask twice. If you or someone you know is struggling, call or text 9-8-8 (Canada's Suicide Crisis Helpline), any hour, any day.</p></dd></div>
       </dl>
+
+      <h3 style="margin-top:48px">How to join</h3>
+      <p>Fundraising is optional. Not fundraising? Skip to step 3.</p>
+      ${joinSteps()}
     </section>`;
 }
 
