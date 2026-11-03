@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=202610272128';
+import { CONFIG } from './config.js?v=202611031616';
 
 // ---------------------------------------------------------------------
 // Setup
@@ -889,7 +889,7 @@ async function pageMe() {
   document.getElementById('signout').addEventListener('click', async () => { await sb.auth.signOut(); await loadUser(); location.hash = '#/'; });
   document.getElementById('copy-emails')?.addEventListener('click', async () => {
     try {
-      const rows = await q(sb.from('reminder_emails').select('email'));
+      const rows = await q(sb.rpc('admin_reminder_emails'));
       const list = rows.map((r) => r.email).join(', ');
       try { await navigator.clipboard.writeText(list); toast(`Copied ${rows.length} addresses.`); }
       catch { prompt('Copy these addresses:', list); }
